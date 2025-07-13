@@ -53,20 +53,34 @@ def test_memory_func(result):
     from core.memory.image_memory import ImageMemory
     memory = ImageMemory(collection_name="test")
     # 依次存储
-    if result.image is not None:
+    try:
         memory.save_raw_image(result)
         print("已存储原图 embedding")
-    if hasattr(result, "bboxs_image") and result.bboxs_image is not None:
+    except Exception as e:
+        print(f"存储原图失败: {e}")
+
+    try:
         memory.save_result(result, type="bbox")
         print("已存储 bbox embedding")
-    if hasattr(result, "masks_image") and result.masks_image is not None:
+    except Exception as e:
+        print(f"存储 bbox 失败: {e}")
+
+    try:
         memory.save_result(result, type="mask")
         print("已存储 mask embedding")
+    except Exception as e:
+        print(f"存储 mask 失败: {e}")
+
     # 检索
     retrieved = memory.query_result(getattr(result, "image", None), top_k=1)
     print("检索结果：")
     for i, item in enumerate(retrieved):
-        print(f"[{i}]", item.get("uid", item))
+        # 去除 embedding 字段，仅打印其它内容
+        if isinstance(item, dict):
+            item_no_emb = {k: v for k, v in item.items() if k != "embedding"}
+            print(f"[{i}]", item_no_emb)
+        else:
+            print(f"[{i}]", item)
 
 
 def handle_output(

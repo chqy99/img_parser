@@ -1,8 +1,8 @@
+import torch
 import numpy as np
 from PIL import Image
-import torch
 from core.modules.clip_module import ClipModule
-
+from core.modules.module_factory import ModuleFactory
 
 class EmbeddingHandler:
     """
@@ -10,7 +10,7 @@ class EmbeddingHandler:
     """
 
     def __init__(self, clip_module: ClipModule = None):
-        self.clip_module = clip_module or self._load_default_clip()
+        self.clip_module = clip_module or ModuleFactory.get_module("clip")
 
     def _load_default_clip(self):
         # You may want to customize this to load your own config

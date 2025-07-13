@@ -7,6 +7,16 @@ class CustomChromaDB:
         self.client = chromadb.PersistentClient(path=persist_directory)
         self.collection = self.client.get_or_create_collection(collection_name)
 
+    @staticmethod
+    def preprocess_metadata(metadata):
+        def preprocess(v):
+            if v is None:
+                return ""
+            if isinstance(v, (dict, list, tuple, set)):
+                return str(v)
+            return v
+        return {k: preprocess(v) for k, v in metadata.items()}
+
     def add(self, ids, embeddings, metadatas):
         """
         支持单条和批量插入：
@@ -17,6 +27,8 @@ class CustomChromaDB:
             ids = [ids]
             embeddings = [embeddings]
             metadatas = [metadatas]
+        # 预处理 metadatas，保证所有值为 str/int/float/bool
+        metadatas = [self.preprocess_metadata(m) for m in metadatas]
         documents = [m.get("text", "") for m in metadatas]
         self.collection.add(ids=ids, embeddings=embeddings, metadatas=metadatas, documents=documents)
 

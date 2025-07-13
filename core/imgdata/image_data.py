@@ -196,7 +196,6 @@ class ImageParseUnit:
         NumPy image arrays are converted to base64-encoded strings for selected fields.
         image_filter: list of field names (e.g. ["image", "bbox_image", "mask_image", "mask"])
         """
-        image_filter = image_filter or ["bbox_image", "mask_image", "mask"]
         d = {
             "bbox": self.bbox.to_dict(),
             "source_module": self.source_module,
@@ -239,7 +238,6 @@ class ImageParseUnit:
         Deserializes an ImageParseUnit from a dictionary.
         image_filter: list of field names to decode from base64 (e.g. ["image", "bbox_image", "mask_image", "mask"])
         """
-        image_filter = image_filter or ["bbox_image", "mask_image", "mask"]
         obj = cls(
             bbox=BBox.from_dict(data["bbox"]),
             source_module=data["source_module"],
@@ -328,12 +326,15 @@ class ImageParseUnit:
         image_filter: list of field names to save (e.g. ["mask", "mask_image", "bbox_image"])
         Default: ["bboxs_image"]
         """
-        image_filter = image_filter or ["bbox_image"]
         os.makedirs(base_dir, exist_ok=True)
         if not self.uid:
             self.get_uid()
         for field in image_filter:
-            arr = getattr(self, field, None)
+            get_func = getattr(self, f"get_{field}", None)
+            if callable(get_func):
+                arr = get_func()
+            else:
+                arr = getattr(self, field, None)
             if arr is not None:
                 file_path = os.path.join(base_dir, f"{self.uid}_{field}.png")
                 img = Image.fromarray(arr.astype("uint8"))
@@ -346,7 +347,6 @@ class ImageParseUnit:
         image_filter: list of field names to load (e.g. ["mask", "mask_image", "bbox_image"])
         Default: ["bboxs_image"]
         """
-        image_filter = image_filter or ["bbox_image"]
         for field in image_filter:
             path = self.storage_dict.get(f"{field}_path")
             if path:
@@ -451,7 +451,6 @@ class ImageParseResult:
         """
         Serialize the result, including units (with filter), and optionally image fields.
         """
-        image_filter = image_filter or ["image"]
         d = {
             "units": [u.to_dict(image_filter=unit_image_filter) for u in self.units],
             "summary_text": self.summary_text,
@@ -479,7 +478,6 @@ class ImageParseResult:
         """
         Deserialize from dict, including units and optionally image fields.
         """
-        image_filter = image_filter or ["image"]
         image = (
             base64_to_np(data["image"])
             if "image" in image_filter and data.get("image")
@@ -504,7 +502,7 @@ class ImageParseResult:
             obj.masks_image = base64_to_np(data["masks_image"])
         return obj
 
-    def to_vector_records(self) -> dict:
+    def to_vector_record(self) -> dict:
         """
         Return a dict for vector DB storage: result-level info + unit uid list.
         """
@@ -522,12 +520,15 @@ class ImageParseResult:
         image_filter: list of field names to save (e.g. ["image", "bboxs_image", "masks", "masks_image"])
         Default: ["image", "bboxs_image"]
         """
-        image_filter = image_filter or ["image", "bboxs_image"]
         os.makedirs(base_dir, exist_ok=True)
         if not self.uid:
             self.get_uid()
         for field in image_filter:
-            arr = getattr(self, field, None)
+            get_func = getattr(self, f"get_{field}", None)
+            if callable(get_func):
+                arr = get_func()
+            else:
+                arr = getattr(self, field, None)
             if arr is not None:
                 file_path = os.path.join(base_dir, f"{self.uid}_{field}.png")
                 img = Image.fromarray(arr.astype("uint8"))
@@ -540,7 +541,6 @@ class ImageParseResult:
         image_filter: list of field names to load (e.g. ["image", "bboxs_image", "masks", "masks_image"])
         Default: ["image", "bboxs_image"]
         """
-        image_filter = image_filter or ["image", "bboxs_image"]
         for field in image_filter:
             path = self.storage_dict.get(f"{field}_path")
             if path:

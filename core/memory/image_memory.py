@@ -1,4 +1,3 @@
-import os
 import yaml
 import numpy as np
 from typing import Optional, List, Dict, Any
@@ -13,14 +12,16 @@ class ImageMemory:
         config_path: 只处理 base_dir 和 vector_db_dir
         embedding_handler: 默认不变
         """
-        if config_path is not None:
-            with open(config_path, "r", encoding="utf-8") as f:
-                cfg = yaml.safe_load(f)
-            self.base_dir = cfg.get("base_dir", "./img_memory")
-            self.vector_db_dir = cfg.get("vector_db_dir", "./.chroma_db")
-        else:
-            self.base_dir = "./img_memory"
-            self.vector_db_dir = "./.chroma_db"
+        if config_path is None:
+            # 获取当前文件所在目录，拼接 configs/memory_config.yaml
+            import os
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            config_path = os.path.join(current_dir, "..", "..", "configs", "memory_config.yaml")
+            config_path = os.path.normpath(config_path)
+        with open(config_path, "r", encoding="utf-8") as f:
+            cfg = yaml.safe_load(f)
+        self.base_dir = cfg.get("base_dir", "./img_memory")
+        self.vector_db_dir = cfg.get("vector_db_dir", "./.chroma_db")
         self.collection_name = collection_name
         self.embedding_handler = embedding_handler or EmbeddingHandler()
         self.db = CustomChromaDB(persist_directory=self.vector_db_dir, collection_name=self.collection_name)
@@ -36,7 +37,7 @@ class ImageMemory:
         if img is None:
             raise ValueError(f"No valid {type}_image for embedding.")
         embedding = self.embedding_handler.get_embedding(img)
-        metadata = unit.to_dict(image_filter=[])
+        metadata = unit.to_vector_record()
         self.db.add(f"{unit.get_uid()}_{type}", embedding, metadata)
 
     def save_units(self, units: List[ImageParseUnit], type: str = "bbox"):
@@ -51,13 +52,13 @@ class ImageMemory:
                 continue
             ids.append(f"{u.get_uid()}_{type}")
             embeddings.append(self.embedding_handler.get_embedding(img))
-            metadatas.append(u.to_dict(image_filter=[]))
+            metadatas.append(u.to_vector_record())
         if ids:
             self.db.add(ids, embeddings, metadatas)
 
     def save_result(self, result: ImageParseResult, type: str = "bbox"):
-        # 保存所有 unit 的图片
-        self.save_units(result.units, type=type)
+        # # 保存所有 unit 的图片
+        # self.save_units(result.units, type=type)
         # 保存 result 级图片（如有）
         result.save_image(self.base_dir, image_filter=[f"{type}s_image"])
         # 按 type 选取主键 embedding
@@ -68,14 +69,15 @@ class ImageMemory:
         if img is None:
             raise ValueError(f"No valid result {type}s_image for embedding.")
         embedding = self.embedding_handler.get_embedding(img)
-        metadata = result.to_dict(image_filter=[])
+        metadata = result.to_vector_record()
         # id 加 type 后缀
         self.db.add(f"{result.get_uid()}_{type}", embedding, metadata)
 
     def save_raw_image(self, result: ImageParseResult):
-        # 原图 embedding 单独插入，id 不加 type 后缀
+        result.save_image(self.base_dir, image_filter=["image"])
         embedding_img = self.embedding_handler.get_embedding(result.image)
-        metadata_img = result.to_dict(image_filter=[])
+        metadata_img = result.to_vector_record()
+        # 原图 embedding 单独插入，id 不加 type 后缀
         self.db.add(result.get_uid(), embedding_img, metadata_img)
 
     def query_result(self, img: np.ndarray, top_k: int = 5) -> List[Dict[str, Any]]:
