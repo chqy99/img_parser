@@ -166,7 +166,7 @@ def generate_html_for_result(
 
     rows_html = ""
     for item in result.units:
-        item_dict = item.to_dict()
+        item_dict = item.to_dict(["bbox_image", "mask_image"])
 
         cells = []
         for field in show_fields:

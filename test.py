@@ -49,8 +49,10 @@ def save_html(result: ImageParseResult, path):
         f.write(html_content)
     print(f"HTML 文件已保存到: {path}")
 
+
 def test_memory_func(result):
     from core.memory.image_memory import ImageMemory
+
     memory = ImageMemory(collection_name="test")
     # 依次存储
     try:
@@ -74,13 +76,7 @@ def test_memory_func(result):
     # 检索
     retrieved = memory.query_result(getattr(result, "image", None), top_k=1)
     print("检索结果：")
-    for i, item in enumerate(retrieved):
-        # 去除 embedding 字段，仅打印其它内容
-        if isinstance(item, dict):
-            item_no_emb = {k: v for k, v in item.items() if k != "embedding"}
-            print(f"[{i}]", item_no_emb)
-        else:
-            print(f"[{i}]", item)
+    print(retrieved)
 
 
 def handle_output(
@@ -106,6 +102,19 @@ def handle_output(
 # ======================
 
 
+@register_test("retrieve")
+def test_retrieve(img_path, output_mode="print", output_path=None):
+    """
+    检索模块：通过图片路径检索向量数据库，打印检索结果。
+    """
+    from core.memory.image_memory import ImageMemory
+
+    memory = ImageMemory(collection_name="test")
+    image = np.array(Image.open(img_path).convert("RGB"))
+    retrieved = memory.query_result(image, top_k=1, as_object=True)
+    handle_output(retrieved[0], output_mode, output_path)
+
+
 @register_test("paddleocr")
 def test_paddleocr(img_path, output_mode="print", output_path=None):
     import core.modules.paddleocr_module
@@ -122,7 +131,9 @@ def test_clip(img_path, output_mode="print", output_path=None):
 
     clipModule = ModuleFactory.get_module("clip")
     image = np.array(Image.open(img_path))
-    result = clipModule.parse([ImageParseUnit(image=image, bbox=None, source_module="")], filter="image")
+    result = clipModule.parse(
+        [ImageParseUnit(image=image, bbox=None, source_module="")], filter="image"
+    )
     print(result)
 
 
@@ -132,7 +143,9 @@ def test_florence2(img_path, output_mode="print", output_path=None):
 
     florence2Module = ModuleFactory.get_module("florence2")
     image = np.array(Image.open(img_path))
-    result = florence2Module.parse([ImageParseUnit(image=image, bbox=None, source_module="")], filter="image")
+    result = florence2Module.parse(
+        [ImageParseUnit(image=image, bbox=None, source_module="")], filter="image"
+    )
     print(result)
 
 
@@ -142,7 +155,9 @@ def test_florence2_icon(img_path, output_mode="print", output_path=None):
 
     florence2Module = ModuleFactory.get_module("florence2_icon")
     image = np.array(Image.open(img_path))
-    result = florence2Module.parse([ImageParseUnit(image=image, bbox=None, source_module="")], filter="image")
+    result = florence2Module.parse(
+        [ImageParseUnit(image=image, bbox=None, source_module="")], filter="image"
+    )
     print(result)
 
 

@@ -111,6 +111,47 @@ class BBox:
         )
 
 
+class ImageIOHelper:
+    @staticmethod
+    def save_images(obj, base_dir: str, image_filter: Optional[list] = []):
+        import os
+        from PIL import Image
+
+        os.makedirs(base_dir, exist_ok=True)
+        if not hasattr(obj, "uid") or obj.uid is None:
+            obj.get_uid()
+        for field in image_filter:
+            get_func = getattr(obj, f"get_{field}", None)
+            if callable(get_func):
+                arr = get_func()
+            else:
+                arr = getattr(obj, field, None)
+            if arr is not None:
+                file_path = obj.storage_dict.get(f"{field}_path")
+                if not file_path:
+                    file_path = os.path.join(base_dir, f"{obj.uid}_{field}.png")
+                img = Image.fromarray(arr.astype("uint8"))
+                img.save(file_path)
+                obj.storage_dict[f"{field}_path"] = file_path
+
+    @staticmethod
+    def load_images(obj, base_dir: str):
+        import os
+        from PIL import Image
+        import numpy as np
+
+        # 自动加载所有为 None 的 ndarray 字段
+        for field, value in obj.__dict__.items():
+            if value is None:
+                # 优先从 storage_dict 获取路径
+                path = obj.storage_dict.get(f"{field}_path")
+                if not path and hasattr(obj, "uid"):
+                    path = os.path.join(base_dir, f"{obj.uid}_{field}.png")
+                if path and os.path.exists(path):
+                    arr = np.array(Image.open(path).convert("RGB"))
+                    setattr(obj, field, arr)
+
+
 @dataclass
 class ImageParseUnit:
     """
@@ -190,7 +231,7 @@ class ImageParseUnit:
             )
         return self.mask_image
 
-    def to_dict(self, image_filter: Optional[list] = None) -> dict:
+    def to_dict(self, image_filter: Optional[list] = []) -> dict:
         """
         Serializes the object to a dictionary.
         NumPy image arrays are converted to base64-encoded strings for selected fields.
@@ -232,7 +273,7 @@ class ImageParseUnit:
 
     @classmethod
     def from_dict(
-        cls, data: dict, image_filter: Optional[list] = None
+        cls, data: dict, image_filter: Optional[list] = []
     ) -> "ImageParseUnit":
         """
         Deserializes an ImageParseUnit from a dictionary.
@@ -320,38 +361,11 @@ class ImageParseUnit:
             self.metadata["label_enriched_by"] = source_module
             self.metadata[source_module + "_label_score"] = score
 
-    def save_image(self, base_dir: str, image_filter: Optional[list] = None):
-        """
-        Save selected image fields to disk using PIL. Update storage_dict with file paths.
-        image_filter: list of field names to save (e.g. ["mask", "mask_image", "bbox_image"])
-        Default: ["bboxs_image"]
-        """
-        os.makedirs(base_dir, exist_ok=True)
-        if not self.uid:
-            self.get_uid()
-        for field in image_filter:
-            get_func = getattr(self, f"get_{field}", None)
-            if callable(get_func):
-                arr = get_func()
-            else:
-                arr = getattr(self, field, None)
-            if arr is not None:
-                file_path = os.path.join(base_dir, f"{self.uid}_{field}.png")
-                img = Image.fromarray(arr.astype("uint8"))
-                img.save(file_path)
-                self.storage_dict[f"{field}_path"] = file_path
+    def save_image(self, base_dir: str, image_filter: Optional[list] = []):
+        ImageIOHelper.save_images(self, base_dir, image_filter)
 
-    def load_image(self, image_filter: Optional[list] = None):
-        """
-        Load selected image fields from disk using storage_dict and PIL.
-        image_filter: list of field names to load (e.g. ["mask", "mask_image", "bbox_image"])
-        Default: ["bboxs_image"]
-        """
-        for field in image_filter:
-            path = self.storage_dict.get(f"{field}_path")
-            if path:
-                arr = np.array(Image.open(path).convert("RGB"))
-                setattr(self, field, arr)
+    def load_image(self, base_dir: str):
+        ImageIOHelper.load_images(self, base_dir)
 
 
 @dataclass
@@ -445,8 +459,8 @@ class ImageParseResult:
 
     def to_dict(
         self,
-        image_filter: Optional[list] = None,
-        unit_image_filter: Optional[list] = None,
+        image_filter: Optional[list] = [],
+        unit_image_filter: Optional[list] = [],
     ) -> dict:
         """
         Serialize the result, including units (with filter), and optionally image fields.
@@ -472,8 +486,8 @@ class ImageParseResult:
     def from_dict(
         cls,
         data: dict,
-        image_filter: Optional[list] = None,
-        unit_image_filter: Optional[list] = None,
+        image_filter: Optional[list] = [],
+        unit_image_filter: Optional[list] = [],
     ) -> "ImageParseResult":
         """
         Deserialize from dict, including units and optionally image fields.
@@ -514,35 +528,8 @@ class ImageParseResult:
             "unit_uids": [u.get_uid() for u in self.units],
         }
 
-    def save_image(self, base_dir: str, image_filter: Optional[list] = None):
-        """
-        Save selected result-level images to disk using PIL. Update storage_dict with file paths.
-        image_filter: list of field names to save (e.g. ["image", "bboxs_image", "masks", "masks_image"])
-        Default: ["image", "bboxs_image"]
-        """
-        os.makedirs(base_dir, exist_ok=True)
-        if not self.uid:
-            self.get_uid()
-        for field in image_filter:
-            get_func = getattr(self, f"get_{field}", None)
-            if callable(get_func):
-                arr = get_func()
-            else:
-                arr = getattr(self, field, None)
-            if arr is not None:
-                file_path = os.path.join(base_dir, f"{self.uid}_{field}.png")
-                img = Image.fromarray(arr.astype("uint8"))
-                img.save(file_path)
-                self.storage_dict[f"{field}_path"] = file_path
+    def save_image(self, base_dir: str, image_filter: Optional[list] = []):
+        ImageIOHelper.save_images(self, base_dir, image_filter)
 
-    def load_image(self, image_filter: Optional[list] = None):
-        """
-        Load selected result-level images from disk using storage_dict and PIL.
-        image_filter: list of field names to load (e.g. ["image", "bboxs_image", "masks", "masks_image"])
-        Default: ["image", "bboxs_image"]
-        """
-        for field in image_filter:
-            path = self.storage_dict.get(f"{field}_path")
-            if path:
-                arr = np.array(Image.open(path).convert("RGB"))
-                setattr(self, field, arr)
+    def load_image(self, base_dir: str):
+        ImageIOHelper.load_images(self, base_dir)

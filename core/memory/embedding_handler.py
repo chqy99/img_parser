@@ -4,6 +4,7 @@ from PIL import Image
 from core.modules.clip_module import ClipModule
 from core.modules.module_factory import ModuleFactory
 
+
 class EmbeddingHandler:
     """
     Handles extracting image embeddings using CLIP.
@@ -29,6 +30,8 @@ class EmbeddingHandler:
         inputs = self.clip_module.processor(images=img, return_tensors="pt")
         inputs = {k: v.to(self.clip_module.device) for k, v in inputs.items()}
         with torch.no_grad():
+            # 获取图像特征
             image_features = self.clip_module.model.get_image_features(**inputs)
-            image_features = image_features / image_features.norm(dim=-1, keepdim=True)
-        return image_features.cpu().numpy()[0]
+            # 将特征向量转换为 NumPy 数组并展平为列表
+            image_features_np = image_features.cpu().numpy().flatten().tolist()
+        return image_features_np
