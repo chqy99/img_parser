@@ -49,6 +49,25 @@ def save_html(result: ImageParseResult, path):
         f.write(html_content)
     print(f"HTML 文件已保存到: {path}")
 
+def test_memory_func(result):
+    from core.memory.image_memory import ImageMemory
+    memory = ImageMemory(collection_name="test")
+    # 依次存储
+    if result.image is not None:
+        memory.save_raw_image(result)
+        print("已存储原图 embedding")
+    if hasattr(result, "bboxs_image") and result.bboxs_image is not None:
+        memory.save_result(result, type="bbox")
+        print("已存储 bbox embedding")
+    if hasattr(result, "masks_image") and result.masks_image is not None:
+        memory.save_result(result, type="mask")
+        print("已存储 mask embedding")
+    # 检索
+    retrieved = memory.query_result(getattr(result, "image", None), top_k=1)
+    print("检索结果：")
+    for i, item in enumerate(retrieved):
+        print(f"[{i}]", item.get("uid", item))
+
 
 def handle_output(
     result: ImageParseResult, output_mode: str = "print", output_path: str = None
@@ -61,6 +80,8 @@ def handle_output(
     elif output_mode == "html":
         path = output_path or os.path.join(ensure_log_dir(), f"{timestamp_str()}.html")
         save_html(result, path)
+    elif output_mode == "memory":
+        test_memory_func(result)
     else:
         print(f"[警告] 不支持的输出模式: {output_mode}，默认打印结果")
         print(result)

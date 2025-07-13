@@ -354,86 +354,6 @@ class ImageParseUnit:
                 setattr(self, field, arr)
 
 
-# # ----------------------------- Group Type -----------------------------
-
-# GroupType = Literal[
-#     # ------ ① Spatial / Geometric Relations ------
-#     "same_spatial",     # Occupying the same or nearly identical position.
-#     "overlap",          # Regions that partially intersect.
-#     "contain",          # One region entirely contains another.
-#     "adjacent",         # Positioned side-by-side or in close proximity.
-#     "align",            # Aligned along the same axis (horizontal or vertical).
-
-#     # ------ ② Structural / Layout-Based Groupings ------
-#     "sequence",         # Ordered items (e.g., rows, form fields, timeline).
-#     "parent_child",     # Nested or hierarchical UI blocks (e.g., label + input).
-#     "functional_block", # Belonging to the same logical UI module (e.g., login form).
-#     "text_flow",        # Flow of text across lines or regions (e.g., paragraph).
-#     "repetition",       # Visually repeated units (e.g., list items, cards).
-
-#     # ------ ③ Semantic / Appearance-Based Groupings ------
-#     "same_semantics",   # Conceptually similar roles (e.g., all are "buttons").
-#     "grouped_by_label", # Same assigned label/class name.
-#     "grouped_by_style", # Visual similarity in font, iconography, or shape.
-#     "grouped_by_color", # Similar color scheme or background color.
-
-#     # ------ ④ Fallback ------
-#     "unknown"           # Type could not be inferred.
-# ]
-
-
-# @dataclass
-# class ImageParseGroup:
-#     """
-#     Represents a semantic group composed of ImageParseUnits and/or nested ImageParseGroups.
-
-#     This class enables higher-level semantic structure by grouping related visual regions,
-#     either based on spatial relations (e.g. alignment), functional logic (e.g. layout grouping),
-#     or inferred semantics (e.g. buttons with same label).
-
-#     Attributes:
-#         items (List[Union[ImageParseUnit, ImageParseGroup]]):
-#             The atomic or nested members that form this group.
-
-#         type (GroupType):
-#             The logic or rule that defines how items are grouped.
-#             See `GroupType` for allowed values.
-
-#         group_text (Optional[str]):
-#             A high-level semantic summary of the group.
-#             Example: "Settings Panel", "Form Section", or "Action Buttons".
-
-#         spatial_text (Optional[str]):
-#             A spatially aware or layout-derived textual description.
-#             Example: "Top-right aligned menu", "Left column entries".
-
-#         metadata (Dict[str, Any]):
-#             Custom annotations for reasoning or rules behind grouping.
-#             May include flags, sources, parser notes, or user tags.
-
-#         storage_dict (Dict[str, Any]):
-#             A system-reserved dictionary used to store group-related identifiers,
-#             such as:
-#                 - 'uids': list of unit IDs belonging to the group.
-#                 - 'group_vector_id': ID for the group embedding in vector DB.
-#     """
-
-#     items: List[Union["ImageParseUnit", "ImageParseGroup"]]
-#     type: GroupType = "unknown"
-
-#     group_text: Optional[str] = None
-#     spatial_text: Optional[str] = None
-
-#     metadata: Dict[str, Any] = field(default_factory=dict)
-#     storage_dict: Dict[str, Any] = field(default_factory=dict)
-#     uid: Optional[str] = None
-
-#     def get_uid(self) -> str:
-#         if not self.uid:
-#             self.uid = _id_generator.next_id("group")
-#         return self.uid
-
-
 @dataclass
 class ImageParseResult:
     """
@@ -454,7 +374,6 @@ class ImageParseResult:
     image: np.ndarray
 
     units: List["ImageParseUnit"] = field(default_factory=list)
-    # groups: List["ImageParseGroup"] = field(default_factory=list)
 
     summary_text: Optional[str] = None
 
