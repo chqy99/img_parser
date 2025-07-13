@@ -3,6 +3,7 @@ import os
 import time
 import numpy as np
 from PIL import Image
+from core.memory.image_memory import ImageMemory
 from core.imgdata.image_data import ImageParseResult, ImageParseUnit
 from core.modules.module_factory import ModuleFactory
 from core.imgtools import visualizer
@@ -51,8 +52,6 @@ def save_html(result: ImageParseResult, path):
 
 
 def test_memory_func(result):
-    from core.memory.image_memory import ImageMemory
-
     memory = ImageMemory(collection_name="test")
     # 依次存储
     try:

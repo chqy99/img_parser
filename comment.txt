@@ -3,3 +3,24 @@
 3.florence2 目前效果比不过多模态大模型。
 
 4.模型可以懒加载，但是模块 init 中直接使用了模型。如果模块也想懒加载，得把 init 中访问模型延后。
+5.PaddleOCR 和 torch 的潜在冲突问题，如果先加载了 paddleocr，再加载 torch 可能出现：
+Traceback (most recent call last):
+  File "E:\xingchen\img_parser\test.py", line 239, in <module>
+    main()
+  File "E:\xingchen\img_parser\test.py", line 235, in main
+    tests[test_name](img_path, output_mode, output_path)
+  File "E:\xingchen\img_parser\test.py", line 125, in test_paddleocr
+    handle_output(result, output_mode, output_path)
+  File "E:\xingchen\img_parser\test.py", line 94, in handle_output
+    test_memory_func(result)
+  File "E:\xingchen\img_parser\test.py", line 54, in test_memory_func
+    from core.memory.image_memory import ImageMemory
+  File "E:\xingchen\img_parser\core\memory\image_memory.py", line 5, in <module>
+    from core.memory.embedding_handler import EmbeddingHandler
+  File "E:\xingchen\img_parser\core\memory\embedding_handler.py", line 1, in <module>
+    import torch
+  File "D:\anaconda\envs\myai\lib\site-packages\torch\__init__.py", line 274, in <module>
+    _load_dll_libraries()
+  File "D:\anaconda\envs\myai\lib\site-packages\torch\__init__.py", line 257, in _load_dll_libraries
+    raise err
+OSError: [WinError 127] 找不到指定的程序。 Error loading "D:\anaconda\envs\myai\lib\site-packages\torch\lib\shm.dll" or one of its dependencies.
