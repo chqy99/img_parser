@@ -114,9 +114,6 @@ class BBox:
 class ImageIOHelper:
     @staticmethod
     def save_images(obj, base_dir: str, image_filter: Optional[list] = []):
-        import os
-        from PIL import Image
-
         os.makedirs(base_dir, exist_ok=True)
         if not hasattr(obj, "uid") or obj.uid is None:
             obj.get_uid()
@@ -136,10 +133,6 @@ class ImageIOHelper:
 
     @staticmethod
     def load_images(obj, base_dir: str):
-        import os
-        from PIL import Image
-        import numpy as np
-
         # 自动加载所有为 None 的 ndarray 字段
         for field, value in obj.__dict__.items():
             if value is None:
@@ -332,7 +325,7 @@ class ImageParseUnit:
         if self.text is None or overwrite:
             self.text = text
             self.metadata["text_enriched_by"] = source_module
-            self.metadata[source_module + "_text_score"] = score
+            self.metadata["text_score"] = score
 
     def enrich_label(
         self,
@@ -359,7 +352,7 @@ class ImageParseUnit:
         if self.label is None or overwrite:
             self.label = label
             self.metadata["label_enriched_by"] = source_module
-            self.metadata[source_module + "_label_score"] = score
+            self.metadata["label_score"] = score
 
     def save_image(self, base_dir: str, image_filter: Optional[list] = []):
         ImageIOHelper.save_images(self, base_dir, image_filter)
