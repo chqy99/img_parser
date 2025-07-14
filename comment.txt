@@ -24,3 +24,5 @@ Traceback (most recent call last):
   File "D:\anaconda\envs\myai\lib\site-packages\torch\__init__.py", line 257, in _load_dll_libraries
     raise err
 OSError: [WinError 127] 找不到指定的程序。 Error loading "D:\anaconda\envs\myai\lib\site-packages\torch\lib\shm.dll" or one of its dependencies.
+
+6.跳过图像解析后处理,多功能检索模块
