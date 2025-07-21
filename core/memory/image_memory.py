@@ -4,6 +4,8 @@ from typing import Optional, List, Dict, Any
 from core.imgdata.image_data import ImageParseUnit, ImageParseResult
 from core.memory.embedding_handler import EmbeddingHandler
 from core.memory.custom_chromadb import CustomChromaDB
+from core.memory.custom_sql import SQLHandler
+from core.memory.custom_image_storage import ImageStorageHandler
 
 
 class ImageMemory:
@@ -12,11 +14,15 @@ class ImageMemory:
         collection_name: str,
         config_path: Optional[str] = None,
         embedding_handler: Optional[EmbeddingHandler] = None,
+        result_filter: Optional[List[str]] = ['image', 'bboxs_image', 'masks_image'],
+        unit_filter: Optional[List[str]] = ['mask'],
     ):
         """
         collection_name: 必须指定，向量库集合名
-        config_path: 只处理 base_dir 和 vector_db_dir
-        embedding_handler: 默认不变
+        config_path: 给定 base_dir, vector_db_dir, sql_path 等配置文件路径
+        embedding_handler: 可以传入自定义的 EmbeddingHandler 实例，只保留 image 的 embedding
+        result_filter: 结果级图片保存过滤器，默认 ['image', 'bboxs_image', 'masks_image']
+        unit_filter: 单元级图片保存过滤器，默认 ['mask']
         """
         if config_path is None:
             # 获取当前文件所在目录，拼接 configs/memory_config.yaml
@@ -29,123 +35,113 @@ class ImageMemory:
             config_path = os.path.normpath(config_path)
         with open(config_path, "r", encoding="utf-8") as f:
             cfg = yaml.safe_load(f)
-        self.base_dir = cfg.get("base_dir", "./img_memory")
-        self.vector_db_dir = cfg.get("vector_db_dir", "./.chroma_db")
-        self.collection_name = collection_name
+        base_dir = cfg.get("base_dir", "./img_memory")
+        vector_db_dir = cfg.get("vector_db_dir", "./.chroma_db")
+        sql_path = cfg.get("sql_path", "./image.sqlite")
+
+
         self.embedding_handler = embedding_handler or EmbeddingHandler()
-        self.db = CustomChromaDB(
-            persist_directory=self.vector_db_dir, collection_name=self.collection_name
+        self.collection_name = collection_name
+        self.custom_chromadb = CustomChromaDB(
+            persist_directory=vector_db_dir, collection_name=self.collection_name
         )
 
-    def save_unit(self, unit: ImageParseUnit, type: str = "bbox"):
-        # 保存图片
-        if type == "mask":
-            unit.save_image(self.base_dir, image_filter=["mask"])
-        unit.save_image(self.base_dir, image_filter=[f"{type}_image"])
-        # 按 type 选取主键 embedding
-        if type == "mask":
-            img = (
-                unit.mask_image
-                if unit.mask_image is not None
-                else unit.get_mask_image()
-            )
-        else:
-            img = (
-                unit.bbox_image
-                if unit.bbox_image is not None
-                else unit.get_bbox_image()
-            )
-        if img is None:
-            raise ValueError(f"No valid {type}_image for embedding.")
-        embedding = self.embedding_handler.get_embedding(img)
-        metadata = unit.to_vector_record()
-        self.db.add(f"{unit.get_uid()}_{type}", embedding, metadata)
+        self.image_storage_handler = ImageStorageHandler(base_dir)
+        self.sql_handler = SQLHandler(sql_path)
 
-    def save_units(self, units: List[ImageParseUnit], type: str = "bbox"):
-        ids, embeddings, metadatas = [], [], []
-        for u in units:
-            # 保存图片
-            if type == "mask":
-                u.save_image(self.base_dir, image_filter=["mask"])
-            u.save_image(self.base_dir, image_filter=[f"{type}_image"])
-            if type == "mask":
-                img = u.mask_image if u.mask_image is not None else u.get_mask_image()
-            else:
-                img = u.bbox_image if u.bbox_image is not None else u.get_bbox_image()
-            if img is None:
-                continue
-            ids.append(f"{u.get_uid()}_{type}")
-            embeddings.append(self.embedding_handler.get_embedding(img))
-            metadatas.append(u.to_vector_record())
-        if ids:
-            self.db.add(ids, embeddings, metadatas)
+        self.result_filter = result_filter
+        self.unit_filter = unit_filter
 
-    def save_result(self, result: ImageParseResult, type: str = "bbox"):
-        # 保存所有 unit 的图片
-        self.save_units(result.units, type=type)
-        # 保存 result 级图片（如有）
-        if type == "mask":
-            result.save_image(self.base_dir, image_filter=["masks"])
-        result.save_image(self.base_dir, image_filter=[f"{type}s_image"])
-        # 按 type 选取主键 embedding
-        if type == "mask":
-            img = (
-                result.masks_image
-                if result.masks_image is not None
-                else result.get_masks_image()
+
+    def save_result(self, result: ImageParseResult):
+        # 1. 保存图像（包含 result 和 unit）
+        self.image_storage_handler.save_images(result, self.result_filter)
+        for unit in result.units:
+            self.image_storage_handler.save_images(unit, self.unit_filter)
+
+        # 2. 提取 image 的嵌入并保存至向量数据库
+        if result.image is not None:
+            embedding = self.embedding_handler.get_image_embedding(result.image)
+            self.custom_chromadb.add(
+                ids=result.uid,
+                embeddings=embedding,
+                metadatas={"uid": result.uid}  # metadata 只会包含 uid
             )
-        else:
-            img = (
-                result.bboxs_image
-                if result.bboxs_image is not None
-                else result.get_bboxs_image()
-            )
-        if img is None:
-            raise ValueError(f"No valid result {type}s_image for embedding.")
-        embedding = self.embedding_handler.get_embedding(img)
-        metadata = result.to_vector_record()
-        # id 加 type 后缀
-        self.db.add(f"{result.get_uid()}_{type}", embedding, metadata)
 
-    def save_raw_image(self, result: ImageParseResult):
-        if result.image is None:
-            raise ValueError(f"No valid result {type}s_image for embedding.")
-        result.save_image(self.base_dir, image_filter=["image"])
-        embedding_img = self.embedding_handler.get_embedding(result.image)
-        metadata_img = result.to_vector_record()
-        # 原图 embedding 单独插入，id 不加 type 后缀
-        self.db.add(result.get_uid(), embedding_img, metadata_img)
+        # 3. 保存结构化信息到 SQLite
+        self.sql_handler.save_result(result)
 
-    def query_result(self, img: np.ndarray, top_k: int = 5, as_object: bool = False):
-        embedding = self.embedding_handler.get_embedding(img)
-        results = self.db.query(embedding, top_k=top_k)
+    def get_result(self, uid: str, as_object: bool = False) -> ImageParseResult:
+        # 1. 从 SQLite 获取结果对象
+        result_obj = self.sql_handler.fetch_result(uid)
         if not as_object:
-            return results
-        # 完全还原对象，包括所有 unit 子项（只查 _bbox）
-        objects = []
-        for r in results:
-            if not isinstance(r, dict):
-                continue
-            result_obj = ImageParseResult.from_dict(r)
-            unit_objs = []
-            unit_uids = r.get("unit_uids", [])
-            if isinstance(unit_uids, str):
-                import ast
+            return result_obj
+        if not result_obj:
+            return None
+        # 2. 作为对象时，加载图像数据
+        self.image_storage_handler.load_images(result_obj, self.result_filter)
 
-                unit_uids = ast.literal_eval(unit_uids)
-            for uid in unit_uids:
-                unit_meta = self.db.get(f"{uid}_bbox")
-                if unit_meta:
-                    unit_obj = ImageParseUnit.from_dict(unit_meta)
-                    unit_obj.load_image(self.base_dir)
-                    unit_objs.append(unit_obj)
-            result_obj.units = unit_objs
-            result_obj.load_image(self.base_dir)
-            objects.append(result_obj)
-        return objects
+        return result_obj
 
-    def get_all(self) -> List[Dict[str, Any]]:
+    def query_result(self, query_text: str, query_image: np.ndarray, topk: int = 1, as_object: bool = False) -> List[str]:
+        # Step 1: Text-based fuzzy search
+        uids_text = self.sql_handler.fuzzy_query(query_text, topk=topk * 3) if query_text else []
+        print(uids_text)
+
+        if query_image is None:
+            return [self.get_result(uid, as_object) for uid in uids_text[:topk]]
+
+        # Step 2: Embedding search
+        emb = self.embedding_handler.get_image_embedding(query_image)
+        uids_embed = self.custom_chromadb.query(emb, topk=topk * 3)
+
+        # Step 3: Union of candidates
+        candidate_uids = list(set(uids_text + uids_embed))
+        print(candidate_uids)
+
+        # Step 4: Precise image match ranking
+        scored = [(uid, self.image_match_score(uid, query_image)) for uid in candidate_uids]
+        scored.sort(key=lambda x: x[1], reverse=True)
+        print(f"Scored results: {scored}")
+
+        return [self.get_result(uid, as_object) for uid, score in scored[:topk]]
+
+
+    def image_match_score(self, uid: str, query_image: np.ndarray) -> float:
         """
-        获取所有存储的向量记录，返回列表形式。
+        对比 query_image 与已存储图像中与 uid 对应的 base_image 区域内容是否一致。
+        忽略 base_image 中为 0 的区域，只对非零区域进行像素精确比对。
         """
-        return self.db.get_all()
+        # 获取参考图像
+        base_image = self.image_storage_handler.get_image_by_uid(uid, "masks_image")
+        if base_image is None:
+            base_image = self.image_storage_handler.get_image_by_uid(uid, "bboxs_image")
+        if base_image is None:
+            base_image = self.image_storage_handler.get_image_by_uid(uid, "image")
+        if base_image is None:
+            return 0.0
+
+        # 尺寸检查
+        if base_image.shape != query_image.shape:
+            return 0.0  # 不同尺寸无法比较
+
+        # 创建掩码：仅比较 base_image 中非 0 的区域
+        if len(base_image.shape) == 3:
+            base_mask = np.any(base_image != 0, axis=-1)  # 彩色图像：只要有一个通道非 0 就算有效
+        else:
+            base_mask = base_image != 0  # 灰度图像
+
+        # 比较值相同的区域（仅在 mask 内）
+        if len(base_image.shape) == 3:
+            match = np.all(base_image == query_image, axis=-1)
+        else:
+            match = base_image == query_image
+
+        # 有效区域 + 匹配区域
+        valid_points = np.count_nonzero(base_mask)
+        if valid_points == 0:
+            return 0.0  # 避免除以 0
+
+        match_points = np.count_nonzero(match & base_mask)
+        score = match_points / valid_points
+        return float(score)

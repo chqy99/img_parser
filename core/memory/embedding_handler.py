@@ -24,7 +24,7 @@ class EmbeddingHandler:
             label_texts=model_bundle["label_texts"],
         )
 
-    def get_embedding(self, image: np.ndarray):
+    def get_image_embedding(self, image: np.ndarray):
         # Use CLIP to get image embedding
         img = Image.fromarray(image.astype("uint8"))
         inputs = self.clip_module.processor(images=img, return_tensors="pt")
@@ -35,3 +35,12 @@ class EmbeddingHandler:
             # 将特征向量转换为 NumPy 数组并展平为列表
             image_features_np = image_features.cpu().numpy().flatten().tolist()
         return image_features_np
+
+    def get_text_embedding(self, text: str):
+        # 使用 CLIP 获取文本 embedding
+        inputs = self.clip_module.processor(text=[text], return_tensors="pt", padding=True)
+        inputs = {k: v.to(self.clip_module.device) for k, v in inputs.items()}
+        with torch.no_grad():
+            text_features = self.clip_module.model.get_text_features(**inputs)
+            text_features_np = text_features.cpu().numpy().flatten().tolist()
+        return text_features_np

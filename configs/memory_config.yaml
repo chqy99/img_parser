@@ -1,3 +1,4 @@
 # 图像解析内存与向量数据库配置
-base_dir: ./img_storage
-vector_db_dir: ./.chroma_db
+base_dir: ./output/img_storage
+vector_db_dir: ./output/.chroma_db
+sql_path: ./output/image.sqlite

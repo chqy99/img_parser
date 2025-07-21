@@ -54,26 +54,9 @@ def save_html(result: ImageParseResult, path):
 def test_memory_func(result):
     memory = ImageMemory(collection_name="test")
     # 依次存储
-    try:
-        memory.save_raw_image(result)
-        print("已存储原图 embedding")
-    except Exception as e:
-        print(f"存储原图失败: {e}")
-
-    try:
-        memory.save_result(result, type="bbox")
-        print("已存储 bbox embedding")
-    except Exception as e:
-        print(f"存储 bbox 失败: {e}")
-
-    try:
-        memory.save_result(result, type="mask")
-        print("已存储 mask embedding")
-    except Exception as e:
-        print(f"存储 mask 失败: {e}")
-
+    memory.save_result(result)
     # 检索
-    retrieved = memory.query_result(getattr(result, "image", None), top_k=1)
+    retrieved = memory.query_result("", getattr(result, "image", None), topk=1)
     print("检索结果：")
     print(retrieved)
 
@@ -110,7 +93,7 @@ def test_retrieve(img_path, output_mode="print", output_path=None):
 
     memory = ImageMemory(collection_name="test")
     image = np.array(Image.open(img_path).convert("RGB"))
-    retrieved = memory.query_result(image, top_k=1, as_object=True)
+    retrieved = memory.query_result("冒险", None, topk=1)
     handle_output(retrieved[0], output_mode, output_path)
 
 

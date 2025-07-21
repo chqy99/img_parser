@@ -5,3 +5,4 @@ LOG/
 .github
 .chroma_db
 img_storage/
+image.sqlite

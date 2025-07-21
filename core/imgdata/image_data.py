@@ -110,41 +110,6 @@ class BBox:
             x1=float(cols[0]), y1=float(rows[0]), x2=float(cols[-1]), y2=float(rows[-1])
         )
 
-
-class ImageIOHelper:
-    @staticmethod
-    def save_images(obj, base_dir: str, image_filter: Optional[list] = []):
-        os.makedirs(base_dir, exist_ok=True)
-        if not hasattr(obj, "uid") or obj.uid is None:
-            obj.get_uid()
-        for field in image_filter:
-            get_func = getattr(obj, f"get_{field}", None)
-            if callable(get_func):
-                arr = get_func()
-            else:
-                arr = getattr(obj, field, None)
-            if arr is not None:
-                file_path = obj.storage_dict.get(f"{field}_path")
-                if not file_path:
-                    file_path = os.path.join(base_dir, f"{obj.uid}_{field}.png")
-                img = Image.fromarray(arr.astype("uint8"))
-                img.save(file_path)
-                obj.storage_dict[f"{field}_path"] = file_path
-
-    @staticmethod
-    def load_images(obj, base_dir: str):
-        # 自动加载所有为 None 的 ndarray 字段
-        for field, value in obj.__dict__.items():
-            if value is None:
-                # 优先从 storage_dict 获取路径
-                path = obj.storage_dict.get(f"{field}_path")
-                if not path and hasattr(obj, "uid"):
-                    path = os.path.join(base_dir, f"{obj.uid}_{field}.png")
-                if path and os.path.exists(path):
-                    arr = np.array(Image.open(path).convert("RGB"))
-                    setattr(obj, field, arr)
-
-
 @dataclass
 class ImageParseUnit:
     """
@@ -193,10 +158,9 @@ class ImageParseUnit:
     storage_dict: Dict[str, Any] = field(default_factory=dict)
     uid: Optional[str] = None
 
-    def get_uid(self) -> str:
+    def __post_init__(self):
         if not self.uid:
             self.uid = IDGenerator.instance().next_id("unit")
-        return self.uid
 
     def get_bbox_image(self) -> np.ndarray:
         """
@@ -294,12 +258,6 @@ class ImageParseUnit:
             obj.image = base64_to_np(data["image"])
         return obj
 
-    def to_vector_record(self) -> dict:
-        """
-        Return a lightweight dict for vector DB storage (no image fields).
-        """
-        return self.to_dict([])
-
     def enrich_text(
         self,
         source_module: str,
@@ -354,12 +312,6 @@ class ImageParseUnit:
             self.metadata["label_enriched_by"] = source_module
             self.metadata["label_score"] = score
 
-    def save_image(self, base_dir: str, image_filter: Optional[list] = []):
-        ImageIOHelper.save_images(self, base_dir, image_filter)
-
-    def load_image(self, base_dir: str):
-        ImageIOHelper.load_images(self, base_dir)
-
 
 @dataclass
 class ImageParseResult:
@@ -392,10 +344,9 @@ class ImageParseResult:
     storage_dict: Dict[str, Any] = field(default_factory=dict)
     uid: Optional[str] = None
 
-    def get_uid(self) -> str:
+    def __post_init__(self):
         if not self.uid:
             self.uid = IDGenerator.instance().next_id("result")
-        return self.uid
 
     def get_bboxs_image(self) -> np.ndarray:
         """
@@ -508,21 +459,3 @@ class ImageParseResult:
         if "masks_image" in image_filter and data.get("masks_image"):
             obj.masks_image = base64_to_np(data["masks_image"])
         return obj
-
-    def to_vector_record(self) -> dict:
-        """
-        Return a dict for vector DB storage: result-level info + unit uid list.
-        """
-        return {
-            "uid": self.get_uid(),
-            "summary_text": self.summary_text,
-            "metadata": self.metadata,
-            "storage_dict": self.storage_dict,
-            "unit_uids": [u.get_uid() for u in self.units],
-        }
-
-    def save_image(self, base_dir: str, image_filter: Optional[list] = []):
-        ImageIOHelper.save_images(self, base_dir, image_filter)
-
-    def load_image(self, base_dir: str):
-        ImageIOHelper.load_images(self, base_dir)
