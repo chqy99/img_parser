@@ -1,5 +1,5 @@
 from typing import Tuple
-from core.imgdata.image_data import BBox
+from core.entity.image_parse_data import BBox
 
 
 class StatisticsUtils:

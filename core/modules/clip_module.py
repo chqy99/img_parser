@@ -3,7 +3,7 @@ from transformers import AutoProcessor, AutoModelForZeroShotImageClassification
 import numpy as np
 from typing import List
 from PIL import Image
-from core.imgdata.image_data import ImageParseUnit
+from core.entity.image_parse_data import ImageParseUnit
 from core.modules.base import EnricherModule
 from core.modules.model_config import ModelLoader
 from core.modules.module_factory import ModuleFactory

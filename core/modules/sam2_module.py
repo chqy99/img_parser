@@ -5,8 +5,7 @@ import torch
 import numpy as np
 from typing import List
 
-from core.imgdata.image_data import BBox, ImageParseUnit, ImageParseResult
-from core.imgtools.process_utils import ProcessUtils
+from core.entity.image_parse_data import BBox, ImageParseUnit, ImageParseResult
 from core.modules.base import BaseModule
 from core.modules.model_config import ModelLoader
 from core.modules.module_factory import ModuleFactory
@@ -30,8 +29,6 @@ class SamModule(BaseModule):
         parse_res = ImageParseResult(image=image)
         for item in res:
             mask = item["segmentation"]
-            # mask 去除毛边
-            mask = ProcessUtils.erode(mask.astype(np.uint8)).astype(np.bool_)
             # bbox_input = item["bbox"], 不使用解析的 bbox
             bbox = BBox.mask_to_bbox(mask)
             score = item["stability_score"]

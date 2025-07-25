@@ -1,8 +1,8 @@
 import sqlite3
 from typing import List, Optional
 
-from core.imgdata.image_data import BBox, ImageParseUnit, ImageParseResult
-from core.memory.metadata_utils import MetadataUtils
+from core.entity.image_parse_data import BBox, ImageParseUnit, ImageParseResult
+from core.repository.metadata_utils import MetadataUtils
 
 class SQLHandler:
     def __init__(self, db_path: str):
@@ -179,6 +179,56 @@ class SQLHandler:
                 matches.add(result_uid)
 
         return list(matches)[:topk]
+
+    def update_result(self, uid: str, update_fields: dict):
+        """
+        根据 uid 更新 result_table 的字段。
+        """
+        if not update_fields:
+            return
+        set_clause = []
+        values = []
+        for k, v in update_fields.items():
+            if k == "images" or k == "embedding":
+                continue  # 跳过图片和embedding字段
+            set_clause.append(f"{k} = ?")
+            values.append(v)
+        if not set_clause:
+            return
+        sql = f"UPDATE result_table SET {', '.join(set_clause)} WHERE uid = ?"
+        values.append(uid)
+        self.cursor.execute(sql, values)
+        self.conn.commit()
+
+    def delete_result(self, uid: str):
+        """
+        删除 result_table 及其对应的 unit_table。
+        """
+        # 先查 unit_table
+        self.cursor.execute("SELECT unit_table FROM result_table WHERE uid = ?", (uid,))
+        row = self.cursor.fetchone()
+        if row:
+            unit_table = row[0]
+            self.cursor.execute(f"DROP TABLE IF EXISTS {unit_table}")
+        self.cursor.execute("DELETE FROM result_table WHERE uid = ?", (uid,))
+        self.conn.commit()
+
+    def list_results(self, filters: dict = None, as_object: bool = False):
+        """
+        支持简单条件过滤，返回所有结果。
+        """
+        sql = "SELECT uid FROM result_table"
+        values = []
+        if filters:
+            clauses = []
+            for k, v in filters.items():
+                clauses.append(f"{k} = ?")
+                values.append(v)
+            if clauses:
+                sql += " WHERE " + " AND ".join(clauses)
+        self.cursor.execute(sql, values)
+        uids = [row[0] for row in self.cursor.fetchall()]
+        return [self.fetch_result(uid, as_object) for uid in uids]
 
 
     def close(self):

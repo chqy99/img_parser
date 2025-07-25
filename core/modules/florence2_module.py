@@ -6,7 +6,7 @@ import numpy as np
 import cv2
 from typing import List, Optional
 from PIL import Image  # 缺少这一行
-from core.imgdata.image_data import ImageParseUnit
+from core.entity.image_parse_data import ImageParseUnit
 from core.modules.base import EnricherModule
 from core.modules.model_config import ModelLoader
 from core.modules.module_factory import ModuleFactory

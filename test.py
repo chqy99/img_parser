@@ -3,10 +3,10 @@ import os
 import time
 import numpy as np
 from PIL import Image
-from core.memory.image_memory import ImageMemory
-from core.imgdata.image_data import ImageParseResult, ImageParseUnit
+from core.services.repository_manager import RepositoryManager
+from core.entity.image_parse_data import ImageParseResult, ImageParseUnit
 from core.modules.module_factory import ModuleFactory
-from core.imgtools import visualizer
+from scripts import visualizer
 
 # ======================
 # 自动注册测试函数
@@ -52,7 +52,7 @@ def save_html(result: ImageParseResult, path):
 
 
 def test_memory_func(result):
-    memory = ImageMemory(collection_name="test")
+    memory = RepositoryManager(collection_name="test")
     # 依次存储
     memory.save_result(result)
     # 检索
@@ -89,9 +89,7 @@ def test_retrieve(img_path, output_mode="print", output_path=None):
     """
     检索模块：通过图片路径检索向量数据库，打印检索结果。
     """
-    from core.memory.image_memory import ImageMemory
-
-    memory = ImageMemory(collection_name="test")
+    memory = RepositoryManager(collection_name="test")
     image = np.array(Image.open(img_path).convert("RGB"))
     retrieved = memory.query_result("冒险", None, topk=1)
     handle_output(retrieved[0], output_mode, output_path)

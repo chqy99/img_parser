@@ -1,105 +1,182 @@
-# GUI Agent 设计文档
+---
 
-## 1. 总体目标
-- 实现一个以本地 workflow 自动化为主、LLM 兜底的智能 GUI 任务代理。
-- 支持自动抓取屏幕、图像解析、知识库检索、workflow 执行、异常兜底与告警。
+# 图像解析系统白皮书
 
-## 2. 系统架构
+## 一、系统目的
 
-```
-+-------------------+
-|   任务目标输入    |
-+-------------------+
-           |
-           v
-+-------------------+
-|  屏幕截图采集模块 |
-+-------------------+
-           |
-           v
-+-------------------+
-| 图像解析/向量检索 |
-+-------------------+
-           |
-           v
-+-------------------+
-| workflow 检索与执行|
-+-------------------+
-           |
-           v
-+-------------------+
-|  动作知识库支持   |
-+-------------------+
-           |
-           v
-+-------------------+
-|   LLM 智能兜底    |
-+-------------------+
-           |
-           v
-+-------------------+
-|   失败告警/邮件   |
-+-------------------+
-```
+本系统为 `gui_agent` 提供高效、可扩展的图像解析能力，支持零样本（zeroshot）识别、解析数据的持久化管理，并通过标准 API 服务对接前端和 MCP，助力智能 GUI 交互与自动化。
 
-## 3. 主要模块说明
+---
 
-### 3.1 屏幕截图采集模块
-- 自动定时或按需抓取当前屏幕内容。
-- 推荐 pyautogui、mss、PIL 等库。
+## 二、核心业务
 
-### 3.2 图像解析与向量检索
-- 先用截图在本地向量数据库检索，未命中则走多模型图像解析 pipeline。
-- 解析结果自动入库。
+1. **Zeroshot 图像识别**
 
-### 3.3 workflow 检索与执行
-- 解析结果+上下文在 workflow 数据库中检索匹配。
-- 匹配到则严格按 workflow 步骤自动执行（如 UI 自动化、脚本等）。
-- 动作知识库提供每步的具体实现模板。
+   * 支持基于大模型/多模态模型的开放式图像解析，适用于未见场景的智能识别。
+   * 典型模型：CLIP、Florence2、SAM2、YOLO 等。
 
-### 3.4 LLM 智能兜底
-- 仅在 workflow 无法覆盖或遇到异常时才调用。
-- LLM 输出结构化操作建议或补全 workflow 步骤。
-- 可选：人工审核后补全 workflow 数据库。
+2. **解析数据存储与管理**
 
-### 3.5 失败告警
-- 每步操作有失败计数，超限自动邮件通知。
+   * 结构化存储每次解析的结果（`ImageParseResult` / `ImageParseUnit`），支持多种存储介质（SQL、本地图片、向量库）。
+   * 提供解析数据的增删改查（CRUD）接口，支持批量与条件检索。
 
-## 4. 数据与知识库
-- 图像解析向量数据库：存储解析过的 UI 区块、文本、布局等。
-- 动作知识数据库：存储 UI 操作模板、API、预测信息。
-- 个人知识数据库（workflow）：存储任务规划、特殊情况处理规则。
+3. **服务 API 接口**
 
-## 5. 运行主流程伪代码
+   * 统一 RESTful API，供前端和 MCP 调用。
+   * 支持图片上传、解析、检索、结果管理等全流程。
+
+4. **架构级可扩展性**
+
+   * 模块化设计，支持模型/管道/存储/接口的灵活拓展。
+   * 配置驱动，各模块均支持配置注入，便于后续集成新模型、新业务场景。
+
+---
+
+## 三、典型使用行为
+
+* **记忆库标注**：用户可手动标注常用场景，存入解析记忆库，便于后续快速检索与复用。
+* **智能识别补充**：遇到记忆库难以匹配的新场景时，自动调用 zeroshot 识别，提升系统泛化能力。
+* **解析结果管理**：支持解析结果的增删改查、版本管理、历史回滚等。
+
+---
+
+## 四、目录结构与模块说明
 
 ```
-def main(task_goal):
-    screenshot = auto_capture_screen()
-    parse_result = image_vector_db.query(screenshot) or image_parser.parse(screenshot)
-    context = build_context(parse_result, task_goal)
-    workflow = workflow_db.match(context)
-    if workflow:
-        for step in workflow['steps']:
-            success = execute_step(step)
-            if not success:
-                handle_failure(step, context)
-                break
+img_parser/
+  api/
+    parse_api.py           # 图像解析接口
+    repository_api.py      # 数据库管理接口
+    upload_api.py          # 图片上传接口
+  configs/
+    memory_config.yaml     # 本地缓存与路径配置
+    model_config.yaml      # 模型加载与预设
+    paddleocr_config.yaml  # OCR 模块配置
+    config_factory.py      # 配置工厂类（新增）
+  core/
+    entity/
+      image_parse_data.py  # ImageParseResult/Unit 数据结构定义
+    modules/
+      base.py
+      model_config.py
+      clip_module.py
+      florence2_module.py
+      yolo_module.py
+      sam2_module.py
+      paddleocr_module.py
+    pipeline/
+      base.py
+      custom_omni_parser.py
+      semantic_parser.py
+    repository/
+      custom_sql.py
+      custom_chromadb.py
+      custom_image_storage.py
+      embedding_handler.py
+      metadata_utils.py
+    services/
+      parser_manager.py       # 主解析管理逻辑
+      repository_manager.py   # 数据库/存储管理逻辑
+  server.py               # 启动服务入口
+```
+
+---
+
+## 五、关键设计与实现建议
+
+### 5.1 图片上传、图像池与内存缓存
+
+#### 功能目标：
+
+* **图片持久化**：上传图片后保存至 `img_memory/` 本地图片池，使用 `uid` 管理。
+* **内存缓存机制**：设计 `image_cache: dict[uid, base64]` 用于热图像缓存，支持两种模式：
+
+| 模式                        | 描述                                                     |
+| ------------------------- | ------------------------------------------------------ |
+| `auto_cache_unparsed`（默认） | 上传图片后保存在 `image_cache` 中，未解析前不写入磁盘，解析时若 cache 失效再自动保存。 |
+| `discard_parsed_image`    | 上传后存入 `image_cache`，解析完成即丢弃，不写入磁盘，可减少无效图像存储。           |
+
+#### 实现建议：
+
+* `ImageStorageHandler` 中增加配置支持与缓存逻辑处理。
+* 缓存字典为模块级全局变量，解析和上传模块共享。
+* 对 `upload_image` 增加缓存注入：
+
+```python
+def upload_image(self, image_base64: str) -> str:
+    from core.repository.custom_image_storage import ImageStorageHandler
+    import base64
+    image_bytes = base64.b64decode(image_base64)
+    from core.entity.image_parse_data import IDGenerator
+    uid = IDGenerator.instance().next_id("img")
+
+    handler = ImageStorageHandler(base_dir="img_memory")
+    if handler.config.cache_mode == "auto_cache_unparsed":
+        handler.image_cache[uid] = image_base64
     else:
-        llm_suggestion = call_llm(context)
-        if llm_suggestion:
-            try_to_execute(llm_suggestion)
-        else:
-            send_alert_email("任务无法自动完成")
+        handler.save_image_by_bytes(uid, "image", image_bytes)
+    return uid
 ```
 
-## 6. 下一步建议
+---
 
-1. **实现/整理 workflow 数据库结构与检索接口**
-   - 设计 workflow 的存储格式（如 YAML/JSON/SQLite），支持模糊/上下文检索。
-   - 实现 workflow_db.match(context) 方法。
-2. 实现屏幕截图采集与图像解析的自动化流程。
-3. 设计动作知识库结构与接口。
-4. 设计 LLM 兜底接口（可选，后期接入）。
-5. 实现主流程调度脚本。
+### 5.2 统一配置加载机制（Config 工厂）
 
-建议优先完成第1步：**workflow 数据库结构与检索接口**，这是整个自动化的核心。
+#### 目标：
+
+* 提供统一入口，动态加载多个配置（如 `memory_config.yaml`, `model_config.yaml`），供模块按需注入。
+* 避免手动路径拼接和冗余代码逻辑。
+
+#### 实现方式：
+
+```python
+# configs/config_factory.py
+
+import yaml, os
+
+class ConfigFactory:
+    _cache = {}
+
+    @staticmethod
+    def load_config(name: str) -> dict:
+        if name in ConfigFactory._cache:
+            return ConfigFactory._cache[name]
+        file_path = os.path.join(os.path.dirname(__file__), f"{name}.yaml")
+        with open(file_path, "r", encoding="utf-8") as f:
+            config = yaml.safe_load(f)
+        ConfigFactory._cache[name] = config
+        return config
+```
+
+#### 使用示例：
+
+```python
+from configs.config_factory import ConfigFactory
+
+memory_config = ConfigFactory.load_config("memory_config")
+model_config = ConfigFactory.load_config("model_config")
+```
+
+* 所有服务层、模块层、pipeline 均可通过 `ConfigFactory` 注入配置，无需自行读取配置文件。
+
+---
+
+### 5.3 API 与服务解耦
+
+* API 层：统一返回 JSON，所有自定义对象需调用 `.to_dict()`。
+* 服务层：仅处理业务逻辑与对象操作。
+* 存储层：统一 uid 管理图片、embedding、mask，可视化图。
+
+---
+
+## 六、系统优势
+
+* **高扩展性**：模块化架构+配置工厂，便于快速引入新模型/业务。
+* **智能缓存机制**：支持图像内存级缓存，提升频繁交互场景下的性能。
+* **多级存储保障**：本地图像池、关系数据库、向量库协同工作，保证数据可靠性与检索效率。
+* **标准 API**：RESTful 设计，适配前端与 MCP 等多端系统接入。
+* **灵活配置体系**：支持服务级、模块级配置注入，免去硬编码负担。
+
+---
+
+如需针对缓存管理、配置注入或模块接口进一步优化的具体代码实现，我可以为你细化每个子模块的设计草图和调用路径。是否需要我帮你生成缓存逻辑或 config 工厂的单元测试模板？

@@ -1,7 +1,7 @@
 import ast
 import chromadb
 from typing import List, Optional, Dict, Any
-from core.memory.metadata_utils import MetadataUtils
+from core.repository.metadata_utils import MetadataUtils
 
 
 class CustomChromaDB:

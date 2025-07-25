@@ -1,14 +1,15 @@
+# 存储服务，增删改查
 import yaml
 import numpy as np
 from typing import Optional, List, Dict, Any
-from core.imgdata.image_data import ImageParseUnit, ImageParseResult
-from core.memory.embedding_handler import EmbeddingHandler
-from core.memory.custom_chromadb import CustomChromaDB
-from core.memory.custom_sql import SQLHandler
-from core.memory.custom_image_storage import ImageStorageHandler
+from core.entity.image_parse_data import ImageParseUnit, ImageParseResult
+from core.repository.embedding_handler import EmbeddingHandler
+from core.repository.custom_chromadb import CustomChromaDB
+from core.repository.custom_sql import SQLHandler
+from core.repository.custom_image_storage import ImageStorageHandler
 
 
-class ImageMemory:
+class RepositoryManager:
     def __init__(
         self,
         collection_name: str,
@@ -145,3 +146,37 @@ class ImageMemory:
         match_points = np.count_nonzero(match & base_mask)
         score = match_points / valid_points
         return float(score)
+
+    def update_result(self, uid: str, update_fields: dict):
+        """
+        更新解析结果（结构化信息、图片、embedding）。
+        update_fields: 可能包含结构化字段、图片（base64）、embedding等。
+        """
+        # 1. 更新结构化信息
+        self.sql_handler.update_result(uid, update_fields)
+        # 2. 如有图片更新
+        images = update_fields.get("images", {})
+        for img_type, img_bytes in images.items():
+            self.image_storage_handler.save_image_by_bytes(uid, img_type, img_bytes)
+        # 3. 如有 embedding 更新
+        embedding = update_fields.get("embedding", None)
+        if embedding is not None:
+            self.custom_chromadb.add(ids=uid, embeddings=embedding, metadatas={"uid": uid})
+
+    def delete_result(self, uid: str):
+        """
+        删除解析结果（结构化、图片、embedding）。
+        """
+        # 1. 删除结构化信息
+        self.sql_handler.delete_result(uid)
+        # 2. 删除所有相关图片
+        for t in ["image", "bboxs_image", "masks_image", "mask", "bbox_image", "mask_image"]:
+            self.image_storage_handler.delete_image(uid, t)
+        # 3. 删除向量库 embedding
+        self.custom_chromadb.delete(uid)
+
+    def list_results(self, filters: dict = None, as_object: bool = False):
+        """
+        批量查询，支持条件过滤。
+        """
+        return self.sql_handler.list_results(filters, as_object)

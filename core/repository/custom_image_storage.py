@@ -4,7 +4,7 @@ import numpy as np
 from typing import List, Optional, Union
 from PIL import Image
 
-from core.imgdata.image_data import ImageParseUnit, ImageParseResult
+from core.entity.image_parse_data import ImageParseUnit, ImageParseResult
 
 class ImageStorageHandler:
     def __init__(self, base_dir: str):
@@ -95,6 +95,30 @@ class ImageStorageHandler:
         except Exception as e:
             warnings.warn(f"[ImageStorageManager] Failed to load image from {path}: {e}")
             return None
+
+    def save_image_by_bytes(self, uid: str, image_type: str, image_bytes: bytes):
+        """
+        直接保存 base64/bytes 图片到指定路径。
+        """
+        from PIL import Image
+        import io
+        import base64
+        path = self._default_image_path(uid, image_type)
+        try:
+            if isinstance(image_bytes, str):
+                image_bytes = base64.b64decode(image_bytes)
+            img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+            img.save(path)
+        except Exception as e:
+            warnings.warn(f"[ImageStorageManager] Failed to save image by bytes: {e}")
+
+    def delete_image(self, uid: str, image_type: str):
+        path = self._default_image_path(uid, image_type)
+        if os.path.exists(path):
+            try:
+                os.remove(path)
+            except Exception as e:
+                warnings.warn(f"[ImageStorageManager] Failed to delete image: {e}")
 
     def _get_image_fields(self, obj: Union[ImageParseUnit, ImageParseResult]) -> List[str]:
         candidate_fields = [
