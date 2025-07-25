@@ -4,7 +4,6 @@ import numpy as np
 from typing import List
 from core.pipeline.base import PipelineParser
 from core.entity.image_parse_data import ImageParseResult, ImageParseUnit
-from core.imgtools.statistics_utils import StatisticsUtils
 
 from core.modules.yolo_module import YoloModule
 from core.modules.paddleocr_module import PaddleOCRModule

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>图像解析前端</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    .preview { max-width: 300px; margin-top: 10px; border: 1px solid #ccc; }
+    .result-unit { margin: 10px 0; padding: 10px; border: 1px solid #aaa; }
+    .unit-img { max-width: 120px; margin-right: 10px; }
+  </style>
+</head>
+<body>
+  <h2>图像解析工具（前后端分离）</h2>
+
+  <input type="file" id="imageInput" accept="image/*" />
+  <br />
+  <label>解析模式:</label>
+  <select id="modeSelect">
+    <option value="semantic">semantic</option>
+    <option value="omni">omni</option>
+    <option value="yolo">yolo</option>
+    <option value="paddleocr">paddleocr</option>
+    <option value="clip">clip</option>
+    <option value="sam2">sam2</option>
+  </select>
+  <button onclick="sendParseRequest()">解析图像</button>
+
+  <div>
+    <h3>图片预览：</h3>
+    <img id="preview" class="preview" />
+  </div>
+
+  <div id="resultContainer">
+    <h3>解析结果：</h3>
+    <div id="results"></div>
+  </div>
+
+  <script>
+    let base64Image = "";
+
+    document.getElementById("imageInput").addEventListener("change", function (e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function () {
+        const result = reader.result;
+        base64Image = result.split(',')[1]; // 去掉 data:image/png;base64, 前缀
+        document.getElementById("preview").src = result;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    async function sendParseRequest() {
+      const mode = document.getElementById("modeSelect").value;
+      if (!base64Image) {
+        alert("请先上传图片！");
+        return;
+      }
+
+      try {
+        const res = await fetch("http://localhost:8200/api/parse", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            image_base64: base64Image,
+            mode: mode
+          })
+        });
+
+        const data = await res.json();
+        renderResults(data);
+      } catch (err) {
+        console.error(err);
+        alert("解析失败，请检查后端服务是否启动！");
+      }
+    }
+
+    function renderResults(data) {
+      const container = document.getElementById("results");
+      container.innerHTML = "";
+
+      if (!data.units || data.units.length === 0) {
+        container.innerHTML = "<p>无解析结果</p>";
+        return;
+      }
+
+      data.units.forEach((unit, idx) => {
+        const div = document.createElement("div");
+        div.className = "result-unit";
+
+        const info = `
+          <strong>#${idx + 1}</strong><br/>
+          <b>Type:</b> ${unit.type || "-"}<br/>
+          <b>Text:</b> ${unit.text || "-"}<br/>
+          <b>Label:</b> ${unit.label || "-"}<br/>
+          <b>Score:</b> ${unit.score?.toFixed?.(2) || "-"}<br/>
+        `;
+
+        const imgs = ['bbox_image', 'mask_image']
+          .filter(k => unit[k])
+          .map(k => `<img src="data:image/png;base64,${unit[k]}" class="unit-img" />`)
+          .join("");
+
+        div.innerHTML = info + "<div>" + imgs + "</div>";
+        container.appendChild(div);
+      });
+    }
+  </script>
+</body>
+</html>

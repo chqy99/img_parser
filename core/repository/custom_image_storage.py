@@ -21,12 +21,7 @@ class ImageStorageHandler:
         storage_dict = getattr(obj, "storage_dict", {})
 
         for field in image_filter:
-            # 优先尝试调用 get_{field} 方法
-            getter = getattr(obj, f"get_{field}", None)
-            if callable(getter):
-                img = getter()
-            else:
-                img = getattr(obj, field, None)
+            img = getattr(obj, field, None)
 
             if img is None:
                 continue

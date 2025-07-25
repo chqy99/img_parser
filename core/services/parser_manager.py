@@ -2,6 +2,7 @@ import base64
 import numpy as np
 from typing import Optional, Dict, Any
 from core.entity.image_parse_data import ImageParseResult, ImageParseUnit, base64_to_np, np_to_base64
+import core.modules
 from core.modules.module_factory import ModuleFactory
 from core.pipeline.semantic_parser import SemanticParser
 from core.pipeline.custom_omni_parser import CustomOmniParser

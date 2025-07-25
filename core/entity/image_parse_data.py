@@ -143,11 +143,12 @@ class ImageParseUnit:
 
     bbox: BBox
     source_module: str
+    uid: Optional[str] = None
 
     mask: Optional[np.ndarray] = None
     image: Optional[np.ndarray] = field(default=None)
-    bbox_image: Optional[np.ndarray] = field(default=None)
-    mask_image: Optional[np.ndarray] = field(default=None)
+    _bbox_image: Optional[np.ndarray] = field(default=None)
+    _mask_image: Optional[np.ndarray] = field(default=None)
 
     type: Optional[str] = None
     text: Optional[str] = None
@@ -156,37 +157,38 @@ class ImageParseUnit:
 
     metadata: Dict[str, Any] = field(default_factory=dict)
     storage_dict: Dict[str, Any] = field(default_factory=dict)
-    uid: Optional[str] = None
 
     def __post_init__(self):
         if not self.uid:
             self.uid = IDGenerator.instance().next_id("unit")
 
-    def get_bbox_image(self) -> np.ndarray:
+    @property
+    def bbox_image(self) -> np.ndarray:
         """
         Returns the cropped region of the image defined by the bounding box.
         If not already cached, it computes and stores the result.
         """
-        if self.bbox_image is None:
-            self.bbox_image = self.bbox.crop(self.image)
-        return self.bbox_image
+        if self._bbox_image is None:
+            self._bbox_image = self.bbox.crop(self.image)
+        return self._bbox_image
 
-    def get_mask_image(self) -> Optional[np.ndarray]:
+    @property
+    def mask_image(self) -> Optional[np.ndarray]:
         """
         Returns the image region within the bounding box with the mask applied.
         If not already cached, it computes and stores the result.
         Returns None if mask is not available.
         """
-        if self.mask_image is None and self.mask is not None:
+        if self._mask_image is None and self.mask is not None:
             x1, y1, x2, y2 = map(
                 int, (self.bbox.x1, self.bbox.y1, self.bbox.x2, self.bbox.y2)
             )
             cropped_img = self.image[y1:y2, x1:x2]
             cropped_mask = self.mask[y1:y2, x1:x2].astype(np.uint8)
-            self.mask_image = cv2.bitwise_and(
+            self._mask_image = cv2.bitwise_and(
                 cropped_img, cropped_img, mask=cropped_mask
             )
-        return self.mask_image
+        return self._mask_image
 
     def to_dict(self, image_filter: Optional[list] = []) -> dict:
         """
@@ -195,6 +197,7 @@ class ImageParseUnit:
         image_filter: list of field names (e.g. ["image", "bbox_image", "mask_image", "mask"])
         """
         d = {
+            "uid": self.uid,
             "bbox": self.bbox.to_dict(),
             "source_module": self.source_module,
             "score": self.score,
@@ -202,20 +205,18 @@ class ImageParseUnit:
             "text": self.text,
             "label": self.label,
             "metadata": self.metadata,
-            "storage_dict": self.storage_dict,
-            "uid": self.uid,
         }
         # Handle ndarray fields
         if "bbox_image" in image_filter:
             d["bbox_image"] = (
-                np_to_base64(self.get_bbox_image())
-                if self.get_bbox_image() is not None
+                np_to_base64(self.bbox_image)
+                if self.bbox_image is not None
                 else None
             )
         if "mask_image" in image_filter:
             d["mask_image"] = (
-                np_to_base64(self.get_mask_image())
-                if self.get_mask_image() is not None
+                np_to_base64(self.mask_image)
+                if self.mask_image is not None
                 else None
             )
         if "mask" in image_filter:
@@ -244,7 +245,6 @@ class ImageParseUnit:
             text=data.get("text"),
             label=data.get("label"),
             metadata=data.get("metadata", {}),
-            storage_dict=data.get("storage_dict", {}),
             uid=data.get("uid"),
         )
         # Handle ndarray fields
@@ -331,24 +331,25 @@ class ImageParseResult:
     """
 
     image: np.ndarray
+    uid: Optional[str] = None
 
     units: List["ImageParseUnit"] = field(default_factory=list)
 
     summary_text: Optional[str] = None
 
-    bboxs_image: Optional[np.ndarray] = None
-    masks: Optional[np.ndarray] = None
-    masks_image: Optional[np.ndarray] = None
+    _bboxs_image: Optional[np.ndarray] = None
+    _masks: Optional[np.ndarray] = None
+    _masks_image: Optional[np.ndarray] = None
 
     metadata: Dict[str, Any] = field(default_factory=dict)
     storage_dict: Dict[str, Any] = field(default_factory=dict)
-    uid: Optional[str] = None
 
     def __post_init__(self):
         if not self.uid:
             self.uid = IDGenerator.instance().next_id("result")
 
-    def get_bboxs_image(self) -> np.ndarray:
+    @property
+    def bboxs_image(self) -> np.ndarray:
         """
         Returns an image with all bounding box regions highlighted.
         Lazily computed and cached.
@@ -356,7 +357,7 @@ class ImageParseResult:
         Returns:
             np.ndarray: The original image with regions (from bbox) visually extracted.
         """
-        if self.bboxs_image is None:
+        if self._bboxs_image is None:
             h, w = self.image.shape[:2]
             mask = np.zeros((h, w), dtype=np.uint8)
             for item in self.units:
@@ -364,10 +365,11 @@ class ImageParseResult:
                     int, (item.bbox.x1, item.bbox.y1, item.bbox.x2, item.bbox.y2)
                 )
                 mask[y1:y2, x1:x2] = 1
-            self.bboxs_image = self.image * (mask[..., None] > 0)
-        return self.bboxs_image
+            self._bboxs_image = self.image * (mask[..., None] > 0)
+        return self._bboxs_image
 
-    def get_masks(self) -> Optional[np.ndarray]:
+    @property
+    def masks(self) -> Optional[np.ndarray]:
         """
         Returns a merged binary mask from all unit-level masks.
         Lazily computed and cached.
@@ -375,7 +377,7 @@ class ImageParseResult:
         Returns:
             Optional[np.ndarray]: A binary mask where any unit-level mask is active.
         """
-        if self.masks is None:
+        if self._masks is None:
             if not any(item.mask is not None for item in self.units):
                 return None
             h, w = self.image.shape[:2]
@@ -383,10 +385,11 @@ class ImageParseResult:
             for item in self.units:
                 if item.mask is not None:
                     mask |= item.mask.astype(np.uint8) > 0
-            self.masks = mask
-        return self.masks
+            self._masks = mask
+        return self._masks
 
-    def get_masks_image(self) -> Optional[np.ndarray]:
+    @property
+    def masks_image(self) -> Optional[np.ndarray]:
         """
         Returns an image with only the masked regions from all units.
         Lazily computed and cached.
@@ -394,12 +397,12 @@ class ImageParseResult:
         Returns:
             Optional[np.ndarray]: Masked image showing only the semantic regions.
         """
-        if self.masks_image is None:
-            mask = self.get_masks()
+        if self._masks_image is None:
+            mask = self.masks
             if mask is None:
                 return None
-            self.masks_image = self.image * (mask[..., None] > 0)
-        return self.masks_image
+            self._masks_image = self.image * (mask[..., None] > 0)
+        return self._masks_image
 
     def to_dict(
         self,
@@ -410,11 +413,10 @@ class ImageParseResult:
         Serialize the result, including units (with filter), and optionally image fields.
         """
         d = {
-            "units": [u.to_dict(image_filter=unit_image_filter) for u in self.units],
+            "uid": self.uid,
             "summary_text": self.summary_text,
             "metadata": self.metadata,
-            "storage_dict": self.storage_dict,
-            "uid": self.uid,
+            "units": [u.to_dict(image_filter=unit_image_filter) for u in self.units],
         }
         if "image" in image_filter and self.image is not None:
             d["image"] = np_to_base64(self.image)
@@ -443,14 +445,13 @@ class ImageParseResult:
         )
         obj = cls(
             image=image,
+            uid=data.get("uid"),
+            summary_text=data.get("summary_text"),
+            metadata=data.get("metadata", {}),
             units=[
                 ImageParseUnit.from_dict(u, image_filter=unit_image_filter)
                 for u in data.get("units", [])
             ],
-            summary_text=data.get("summary_text"),
-            metadata=data.get("metadata", {}),
-            storage_dict=data.get("storage_dict", {}),
-            uid=data.get("uid"),
         )
         if "bboxs_image" in image_filter and data.get("bboxs_image"):
             obj.bboxs_image = base64_to_np(data["bboxs_image"])
