@@ -41,7 +41,7 @@ class ClipModule(EnricherModule):
         for obj in objects:
             # --- 选择区域图像 ---
             if filter == "mask":
-                image = obj.get_mask_image()
+                image = obj.mask_image
                 if image is None:
                     image = obj.image
             elif filter == "image":
@@ -50,7 +50,7 @@ class ClipModule(EnricherModule):
                 image = (
                     obj.bbox_image
                     if obj.bbox_image is not None
-                    else obj.get_bbox_image()
+                    else obj.bbox_image
                 )
 
             label, score = self._classify(image)

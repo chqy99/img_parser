@@ -56,7 +56,7 @@ class Florence2Module(EnricherModule):
         for obj in objects:
             # --- 选择区域图像 ---
             if image_filter == "mask":
-                image = obj.get_mask_image()
+                image = obj.mask_image
                 if image is None:
                     image = obj.image
             elif image_filter == "image":
@@ -65,7 +65,7 @@ class Florence2Module(EnricherModule):
                 image = (
                     obj.bbox_image
                     if obj.bbox_image is not None
-                    else obj.get_bbox_image()
+                    else obj.bbox_image
                 )
 
             image = to_pil(image).convert("RGB")
