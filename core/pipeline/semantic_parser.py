@@ -5,7 +5,6 @@ from typing import List
 from core.pipeline.base import PipelineParser
 from core.entity.image_parse_data import ImageParseResult
 
-
 from core.modules.sam2_module import SamModule
 from core.modules.paddleocr_module import PaddleOCRModule
 from core.modules.florence2_module import Florence2Module
@@ -29,7 +28,7 @@ class SemanticParser(PipelineParser):
 
         # 3. Florence2 区域语义丰富（对 SAM2 区域）
         florence_module: Florence2Module = self.get_module("florence2")
-        florence_units = florence_module.parse(sam2_units, filter="mask", **kwargs)
+        florence_units = florence_module.parse(sam2_units, image_filter="mask", **kwargs)
 
         # 4. 合并所有解析单元
         all_units = []

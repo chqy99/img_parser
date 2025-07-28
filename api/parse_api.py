@@ -8,12 +8,13 @@ router = APIRouter()
 
 class ParseRequest(BaseModel):
     image_base64: str
-    mode: Literal["full", "region", "semantic", "zero_shot", "omni", "yolo", "paddleocr", "clip", "sam2"] = "semantic"
+    mode: Literal["full", "region", "semantic", "zero_shot", "omni",
+                  "yolo", "paddleocr", "clip", "sam2", "groundingdino"] = "semantic"
     prompt: Optional[str] = None
 
 @router.post("/parse")
 async def parse_image(req: ParseRequest):
-    result = ParserManager().parse_image(req.image_base64, mode=req.mode, prompt=req.prompt)
+    result = ParserManager().parse_image(req.image_base64, mode=req.mode, prompts=req.prompt)
     if result is None:
         raise HTTPException(status_code=404, detail="Image not found or parse failed")
     return result

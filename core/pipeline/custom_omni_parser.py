@@ -28,7 +28,7 @@ class CustomOmniParser(PipelineParser):
 
         # 3. Florence2 区域语义丰富（对所有 YOLO 区域）
         florence_module: Florence2Module = self.get_module("florence2_icon")
-        florence_units = florence_module.parse(yolo_units, filter="bbox", **kwargs)
+        florence_units = florence_module.parse(yolo_units, image_filter="bbox", **kwargs)
 
         # 4. 合并所有解析单元
         all_units = []

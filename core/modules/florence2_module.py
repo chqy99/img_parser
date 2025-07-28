@@ -39,7 +39,7 @@ class Florence2Module(EnricherModule):
         self.device = device
         self.source_name = source_name
 
-    # prompt: ['<CAPTION>', '<DETAILED_CAPTION>', '<MORE_DETAILED_CAPTION>',
+    # task_prompt: ['<CAPTION>', '<DETAILED_CAPTION>', '<MORE_DETAILED_CAPTION>',
     #          '<OD>', '<DENSE_REGION_CAPTION>', '<REGION_PROPOSAL>', '<CAPTION_TO_PHRASE_GROUNDING>',
     #          '<REFERRING_EXPRESSION_SEGMENTATION>', '<REGION_TO_SEGMENTATION>', '<OPEN_VOCABULARY_DETECTION>',
     #          '<REGION_TO_CATEGORY>', '<REGION_TO_DESCRIPTION>', '<OCR>', '<OCR_WITH_REGION>']
@@ -47,19 +47,19 @@ class Florence2Module(EnricherModule):
     def parse(
         self,
         objects: List[ImageParseUnit],
-        prompt: str = "<DETAILED_CAPTION>",
-        filter: str = "bbox",  # 可选：bbox / mask / image
+        task_prompt: str = "<DETAILED_CAPTION>",
+        image_filter: str = "bbox",  # 可选：bbox / mask / image
         **kwargs
     ) -> List[ImageParseUnit]:
         to_pil = ToPILImage()
-        prompt = prompt
+
         for obj in objects:
             # --- 选择区域图像 ---
-            if filter == "mask":
+            if image_filter == "mask":
                 image = obj.get_mask_image()
                 if image is None:
                     image = obj.image
-            elif filter == "image":
+            elif image_filter == "image":
                 image = obj.image
             else:  # 默认 bbox
                 image = (
@@ -71,7 +71,7 @@ class Florence2Module(EnricherModule):
             image = to_pil(image).convert("RGB")
 
             # processor 返回 tokenized 图像
-            inputs = self.processor(images=image, text=prompt, return_tensors="pt").to(
+            inputs = self.processor(images=image, text=task_prompt, return_tensors="pt").to(
                 self.device, dtype=torch.float16
             )
 

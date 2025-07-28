@@ -38,3 +38,7 @@ florence2_icon:
 yolo:
   preload: false
   checkpoint: 'checkpoints/yolo/model.pt'
+groundingdino:
+  config_path: groundingdino/config/GroundingDINO_SwinT_OGC.py
+  checkpoint_path: groundingdino/weights/groundingdino_swint_ogc.pth
+  preload: false
