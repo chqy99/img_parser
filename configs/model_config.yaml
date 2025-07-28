@@ -39,6 +39,6 @@ yolo:
   preload: false
   checkpoint: 'checkpoints/yolo/model.pt'
 groundingdino:
-  config_path: groundingdino/config/GroundingDINO_SwinT_OGC.py
-  checkpoint_path: groundingdino/weights/groundingdino_swint_ogc.pth
   preload: false
+  config_path: 'checkpoints/groundingdino/GroundingDINO_SwinB_cfg.py'
+  checkpoint_path: 'checkpoints/groundingdino/groundingdino_swinb_cogcoor.pth'
