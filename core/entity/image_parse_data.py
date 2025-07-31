@@ -346,7 +346,7 @@ class ImageParseResult:
 
     def __post_init__(self):
         if not self.uid:
-            self.uid = IDGenerator.instance().next_id("result")
+            self.uid = IDGenerator.instance().next_id()
 
     @property
     def bboxs_image(self) -> np.ndarray:

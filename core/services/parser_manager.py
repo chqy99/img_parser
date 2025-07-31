@@ -1,11 +1,12 @@
 import base64
 import numpy as np
 from typing import Dict, Any, List
-from core.entity.image_parse_data import ImageParseResult, ImageParseUnit, base64_to_np, np_to_base64
+from core.entity.image_parse_data import ImageParseResult, ImageParseUnit
 import core.modules
 from core.modules.module_factory import ModuleFactory
 from core.pipeline.semantic_parser import SemanticParser
 from core.pipeline.custom_omni_parser import CustomOmniParser
+from core.services.image_cache_service import image_cache_service
 
 class ParserManager:
     def __init__(self):
@@ -17,25 +18,13 @@ class ParserManager:
         # 支持的单模型
         self.modules = ["yolo", "paddleocr", "clip", "sam2", "groundingdino"]
 
-    def upload_image(self, image_base64: str) -> str:
-        """
-        上传图片，返回 uid。
-        """
-        image = base64_to_np(image_base64)
-        # 生成唯一 uid
-        from core.entity.image_parse_data import IDGenerator
-        uid = IDGenerator.instance().next_id("img")
-        # 可扩展：保存图片到本地或数据库
-        # ...
-        return uid
-
-    def parse_image(self, image_base64: str, mode: str = "semantic", prompts: List[str] = None) -> dict:
+    def parse_image(self, uid: str, mode: str = "semantic", prompts: List[str] = None) -> dict:
         """
         支持多种解析模式：pipeline 或单模型。
         mode: "semantic" | "omni" | "yolo" | "paddleocr" | "clip" | "sam2"
         prompt: 可选，部分模型支持
         """
-        image = base64_to_np(image_base64)
+        image = image_cache_service.get_image_by_uid(uid)
         # pipeline 解析
         if mode in self.pipelines:
             parser = self.pipelines[mode]
@@ -55,11 +44,11 @@ class ParserManager:
         else:
             return {"error": f"不支持的解析模式: {mode}"}
 
-    def sam2_predict_with_prompts(self, image_base64: str, prompts: Dict[str, Any]) -> dict:
+    def sam2_predict_with_prompts(self, uid: str, prompts: Dict[str, Any]) -> dict:
         """
         SAM2 单点/多点掩码预测，prompts 结构见 sam2_module。
         """
-        image = base64_to_np(image_base64)
+        image = image_cache_service.get_image_by_uid(uid)
         sam2_module = ModuleFactory.get_module("sam2")
         unit: ImageParseUnit = sam2_module.parse_with_prompts(image, prompts=prompts)
         return unit.to_dict(image_filter=["bbox_image", "mask_image", "mask", "image"])
