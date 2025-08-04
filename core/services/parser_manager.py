@@ -29,16 +29,16 @@ class ParserManager:
         if mode in self.pipelines:
             parser = self.pipelines[mode]
             result: ImageParseResult = parser.parse(image, prompts=prompts)
-            return result.to_dict(image_filter=["image", "bboxs_image", "masks", "masks_image"], unit_image_filter=["bbox_image", "mask_image", "mask"])
+            return result.to_dict(image_filter=[], unit_image_filter=["bbox_image", "mask_image", "mask"])
         # 单模型解析
         elif mode in self.modules:
             module = ModuleFactory.get_module(mode)
             result = module.parse(image, prompts=prompts)
             # 兼容返回 ImageParseResult 或 ImageParseUnit
             if isinstance(result, ImageParseResult):
-                return result.to_dict(image_filter=["image", "bboxs_image", "masks", "masks_image"], unit_image_filter=["bbox_image", "mask_image", "mask"])
+                return result.to_dict(image_filter=[], unit_image_filter=["bbox_image", "mask_image", "mask"])
             elif isinstance(result, ImageParseUnit):
-                return result.to_dict(image_filter=["bbox_image", "mask_image", "mask", "image"])
+                return result.to_dict(image_filter=["bbox_image", "mask_image", "mask"])
             else:
                 return {"error": "Unknown result type"}
         else:
@@ -51,4 +51,4 @@ class ParserManager:
         image = image_cache_service.get_image_by_uid(uid)
         sam2_module = ModuleFactory.get_module("sam2")
         unit: ImageParseUnit = sam2_module.parse_with_prompts(image, prompts=prompts)
-        return unit.to_dict(image_filter=["bbox_image", "mask_image", "mask", "image"])
+        return unit.to_dict(image_filter=["bbox_image", "mask_image", "mask"])
