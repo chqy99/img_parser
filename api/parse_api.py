@@ -6,6 +6,8 @@ from core.services.parser_manager import ParserManager
 
 router = APIRouter()
 
+parser_mgr = ParserManager()
+
 class ParseRequest(BaseModel):
     uid: str
     mode: Literal["full", "region", "semantic", "zero_shot", "omni",
@@ -14,7 +16,7 @@ class ParseRequest(BaseModel):
 
 @router.post("/parse")
 async def parse_image(req: ParseRequest):
-    result = ParserManager().parse_image(req.uid, mode=req.mode, prompts=req.prompt)
+    result = parser_mgr.parse_image(req.uid, mode=req.mode, prompts=req.prompt)
     if result is None:
         raise HTTPException(status_code=404, detail="Image not found or parse failed")
     return result

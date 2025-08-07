@@ -9,7 +9,7 @@ app = FastAPI(title="img_parser API")
 # ✅ 添加这一段！
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 改为 ["http://localhost:5500"] 更安全
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

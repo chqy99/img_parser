@@ -54,16 +54,22 @@ class IDGenerator:
         return "_".join(parts)
 
 
-def np_to_base64(img: np.ndarray, format: str = "PNG") -> str:
-    """Convert a NumPy image to a base64 string."""
+def np_to_base64(img: np.ndarray | str, format: str = "PNG") -> str:
+    """Convert a NumPy image to a base64 string, or return the string if already in that format."""
+    if isinstance(img, str):
+        return img
+
     pil_img = Image.fromarray(img.astype("uint8"))
     buffer = BytesIO()
     pil_img.save(buffer, format=format)
     return base64.b64encode(buffer.getvalue()).decode("utf-8")
 
 
-def base64_to_np(b64_str: str) -> np.ndarray:
-    """Convert a base64 string back to a NumPy image."""
+def base64_to_np(b64_str: str | np.ndarray) -> np.ndarray:
+    """Convert a base64 string back to a NumPy image, or return the array if already in that format."""
+    if isinstance(b64_str, np.ndarray):
+        return b64_str
+
     buffer = BytesIO(base64.b64decode(b64_str))
     pil_img = Image.open(buffer).convert("RGB")
     return np.array(pil_img)
@@ -248,13 +254,13 @@ class ImageParseUnit:
             uid=data.get("uid"),
         )
         # Handle ndarray fields
-        if "bbox_image" in image_filter and data.get("bbox_image"):
+        if "bbox_image" in image_filter and data.get("bbox_image") is not None:
             obj.bbox_image = base64_to_np(data["bbox_image"])
-        if "mask_image" in image_filter and data.get("mask_image"):
+        if "mask_image" in image_filter and data.get("mask_image") is not None:
             obj.mask_image = base64_to_np(data["mask_image"])
-        if "mask" in image_filter and data.get("mask"):
+        if "mask" in image_filter and data.get("mask") is not None:
             obj.mask = base64_to_np(data["mask"])
-        if "image" in image_filter and data.get("image"):
+        if "image" in image_filter and data.get("image") is not None:
             obj.image = base64_to_np(data["image"])
         return obj
 
@@ -440,7 +446,7 @@ class ImageParseResult:
         """
         image = (
             base64_to_np(data["image"])
-            if "image" in image_filter and data.get("image")
+            if "image" in image_filter and data.get("image") is not None
             else None
         )
         obj = cls(
@@ -453,10 +459,10 @@ class ImageParseResult:
                 for u in data.get("units", [])
             ],
         )
-        if "bboxs_image" in image_filter and data.get("bboxs_image"):
+        if "bboxs_image" in image_filter and data.get("bboxs_image") is not None:
             obj.bboxs_image = base64_to_np(data["bboxs_image"])
-        if "masks" in image_filter and data.get("masks"):
+        if "masks" in image_filter and data.get("masks") is not None:
             obj.masks = base64_to_np(data["masks"])
-        if "masks_image" in image_filter and data.get("masks_image"):
+        if "masks_image" in image_filter and data.get("masks_image") is not None:
             obj.masks_image = base64_to_np(data["masks_image"])
         return obj
