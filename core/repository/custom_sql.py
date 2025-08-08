@@ -125,6 +125,7 @@ class SQLHandler:
             summary_text=result_dict.get("summary_text", ""),
             metadata=result_dict.get("metadata", {}),
             units=units,
+            image=None,  # 需要从 image_storage_handler 获取
         )
         result.storage_dict = {
             "image_path": result_dict.get("image_path", ""),

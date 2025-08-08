@@ -196,7 +196,7 @@ class ImageParseUnit:
             )
         return self._mask_image
 
-    def to_dict(self, image_filter: Optional[list] = []) -> dict:
+    def to_dict(self, image_filter: Optional[list] = ["mask"]) -> dict:
         """
         Serializes the object to a dictionary.
         NumPy image arrays are converted to base64-encoded strings for selected fields.
@@ -237,7 +237,7 @@ class ImageParseUnit:
 
     @classmethod
     def from_dict(
-        cls, data: dict, image_filter: Optional[list] = []
+        cls, data: dict, image_filter: Optional[list] = ["mask"]
     ) -> "ImageParseUnit":
         """
         Deserializes an ImageParseUnit from a dictionary.
@@ -255,9 +255,9 @@ class ImageParseUnit:
         )
         # Handle ndarray fields
         if "bbox_image" in image_filter and data.get("bbox_image") is not None:
-            obj.bbox_image = base64_to_np(data["bbox_image"])
+            obj._bbox_image = base64_to_np(data["bbox_image"])
         if "mask_image" in image_filter and data.get("mask_image") is not None:
-            obj.mask_image = base64_to_np(data["mask_image"])
+            obj._mask_image = base64_to_np(data["mask_image"])
         if "mask" in image_filter and data.get("mask") is not None:
             obj.mask = base64_to_np(data["mask"])
         if "image" in image_filter and data.get("image") is not None:
@@ -412,8 +412,8 @@ class ImageParseResult:
 
     def to_dict(
         self,
-        image_filter: Optional[list] = [],
-        unit_image_filter: Optional[list] = [],
+        image_filter: Optional[list] = ["image"],
+        unit_image_filter: Optional[list] = ["mask"],
     ) -> dict:
         """
         Serialize the result, including units (with filter), and optionally image fields.
@@ -438,8 +438,8 @@ class ImageParseResult:
     def from_dict(
         cls,
         data: dict,
-        image_filter: Optional[list] = [],
-        unit_image_filter: Optional[list] = [],
+        image_filter: Optional[list] = ["image"],
+        unit_image_filter: Optional[list] = ["mask"],
     ) -> "ImageParseResult":
         """
         Deserialize from dict, including units and optionally image fields.
@@ -460,9 +460,9 @@ class ImageParseResult:
             ],
         )
         if "bboxs_image" in image_filter and data.get("bboxs_image") is not None:
-            obj.bboxs_image = base64_to_np(data["bboxs_image"])
+            obj._bboxs_image = base64_to_np(data["bboxs_image"])
         if "masks" in image_filter and data.get("masks") is not None:
-            obj.masks = base64_to_np(data["masks"])
+            obj._masks = base64_to_np(data["masks"])
         if "masks_image" in image_filter and data.get("masks_image") is not None:
-            obj.masks_image = base64_to_np(data["masks_image"])
+            obj._masks_image = base64_to_np(data["masks_image"])
         return obj

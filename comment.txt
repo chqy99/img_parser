@@ -26,3 +26,6 @@ Traceback (most recent call last):
 OSError: [WinError 127] 找不到指定的程序。 Error loading "D:\anaconda\envs\myai\lib\site-packages\torch\lib\shm.dll" or one of its dependencies.
 
 6.跳过图像解析后处理,多功能检索模块
+7.image_parse_data 中 base64,image_filter 相关逻辑还需要优化
+8.接口层->服务层->(Cache Layer->DAL) 的逻辑，Cache Layer 可以缓存一些计算属性等等（不命中的时候就使用 DAL）
+9.DAL 层有一个“统一的入口”来处理三种持久化存储

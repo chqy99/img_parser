@@ -13,8 +13,7 @@ repo_mgr = RepositoryManager(collection_name="default")
 class RetrievalQuery(BaseModel):
     query_text: Optional[str]
     query_image_base64: Optional[str]
-    top_k: int = 10
-    mode: Literal["text", "image", "hybrid"] = "text"
+    top_k: int = 5
 
 @router.post("/search")
 async def search_results(req: RetrievalQuery):
@@ -25,13 +24,7 @@ async def search_results(req: RetrievalQuery):
     if req.query_image_base64:
         from core.entity.image_parse_data import base64_to_np
         query_image = base64_to_np(req.query_image_base64)
-    if req.mode == "text":
-        results = repo_mgr.query_result(query_text=req.query_text, query_image=None, topk=req.top_k, as_object=False)
-    elif req.mode == "image":
-        results = repo_mgr.query_result(query_text=None, query_image=query_image, topk=req.top_k, as_object=False)
-    elif req.mode == "hybrid":
-        # TODO: 混合检索策略可更精细化，目前简单合并
-        results = repo_mgr.query_result(query_text=req.query_text, query_image=query_image, topk=req.top_k, as_object=False)
+        results = repo_mgr.query_result(query_text=req.query_text, query_image=query_image, topk=req.top_k)
     else:
         raise HTTPException(400, "mode must be one of text/image/hybrid")
     return results
@@ -55,7 +48,7 @@ def add_result(req: ResultRequest):
     上传 result 对象，已存在则只增加不重复 unit，重复只警告。
     """
     req.result["image"] = image_cache_service.get_image_by_uid(req.result["uid"])
-    result = ImageParseResult.from_dict(req.result, image_filter=["image"], unit_image_filter=["mask"])
+    result = ImageParseResult.from_dict(req.result)
     # 检查 result 是否已存在
     old = repo_mgr.get_result(result.uid, as_object=True)
     if old:
@@ -74,7 +67,7 @@ def update_result(req: ResultRequest):
     """
     # 更新 result
     req.result["image"] = image_cache_service.get_image_by_uid(req.result["uid"])
-    result = ImageParseResult.from_dict(req.result, image_filter=["image"], unit_image_filter=["mask"])
+    result = ImageParseResult.from_dict(req.result)
     update_fields = {}
     if result.summary_text is not None:
         update_fields["summary_text"] = result.summary_text

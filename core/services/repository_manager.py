@@ -74,7 +74,7 @@ class RepositoryManager:
 
     def get_result(self, uid: str, as_object: bool = False) -> ImageParseResult:
         # 1. 从 SQLite 获取结果对象
-        result_obj = self.sql_handler.fetch_result(uid)
+        result_obj = self.sql_handler.fetch_result(uid, as_object)
         if not as_object:
             return result_obj
         if not result_obj:
@@ -84,7 +84,7 @@ class RepositoryManager:
 
         return result_obj
 
-    def query_result(self, query_text: str, query_image: np.ndarray, topk: int = 1, as_object: bool = False) -> List[str]:
+    def query_result(self, query_text: str, query_image: np.ndarray, topk: int = 1, as_object: bool = True) -> List[str]:
         # Step 1: Text-based fuzzy search
         uids_text = self.sql_handler.fuzzy_query(query_text, topk=topk * 3) if query_text else []
         print(uids_text)
@@ -105,7 +105,8 @@ class RepositoryManager:
         scored.sort(key=lambda x: x[1], reverse=True)
         print(f"Scored results: {scored}")
 
-        return [self.get_result(uid, as_object) for uid, score in scored[:topk]]
+        results = [self.get_result(uid, as_object) for uid, score in scored[:topk]]
+        return [item.to_dict() for item in results]
 
 
     def image_match_score(self, uid: str, query_image: np.ndarray) -> float:
