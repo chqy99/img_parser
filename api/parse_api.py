@@ -21,6 +21,13 @@ async def parse_image(req: ParseRequest):
         raise HTTPException(status_code=404, detail="Image not found or parse failed")
     return result
 
+@router.post("/parse/keyinfo")
+async def parse_image_keyinfo(req: ParseRequest):
+    infos = parser_mgr.parse_image_keyinfo(req.uid, mode=req.mode, prompts=req.prompt)
+    if not infos:
+        raise HTTPException(status_code=404, detail="Image not found or parse failed")
+    return infos
+
 class AssistRequest(BaseModel):
     uid: str
     mode: Literal["sam2"] = "sam2"

@@ -44,6 +44,38 @@ class ParserManager:
         else:
             return {"error": f"不支持的解析模式: {mode}"}
 
+    def parse_image_keyinfo(self, uid: str, mode: str = "semantic", prompts: List[str] = None) -> List[dict]:
+        """
+        仅返回 key info: [ {"bbox": [...], "text": "...", "label": "..."}, ... ]
+        """
+        image = image_cache_service.get_image_by_uid(uid)
+        if image is None:
+            return []
+
+        def _extract(unit) -> dict:
+            # 适配 ImageParseUnit 或 dict
+            return {
+                "bbox": unit.bbox,
+                "text": unit.text,
+                "label": unit.label
+            }
+
+        # pipeline
+        if mode in self.pipelines:
+            parser = self.pipelines[mode]
+            result = parser.parse(image, prompts=prompts)
+            return [_extract(u) for u in result.units]
+
+        # 单模型
+        if mode in self.modules:
+            module = ModuleFactory.get_module(mode)
+            result = module.parse(image, prompts=prompts)
+            if isinstance(result, ImageParseResult):
+                return [_extract(u) for u in result.units]
+            elif isinstance(result, ImageParseUnit):
+                return [_extract(result)]
+        return []
+
     def sam2_predict_with_prompts(self, uid: str, prompts: Dict[str, Any]) -> dict:
         """
         SAM2 单点/多点掩码预测，prompts 结构见 sam2_module。
